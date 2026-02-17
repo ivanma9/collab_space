@@ -29,7 +29,7 @@ import { LoginPage } from './LoginPage'
 const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
 
 export function CursorTest() {
-  const { user, displayName, signOut, isLoading } = useAuth()
+  const { user, displayName, avatarUrl, signOut, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -43,16 +43,19 @@ export function CursorTest() {
     return <LoginPage />
   }
 
-  return <CursorTestInner userId={user.id} displayName={displayName} signOut={signOut} />
+  return <CursorTestInner userId={user.id} displayName={displayName} avatarUrl={avatarUrl} signOut={signOut} />
 }
 
-function CursorTestInner({ userId, displayName, signOut }: { userId: string; displayName: string; signOut: () => Promise<void> }) {
+function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
+  userId: string
+  displayName: string
+  avatarUrl: string | null
+  signOut: () => Promise<void>
+}) {
   const currentUser = { id: userId, name: displayName }
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
-
-  const { avatarUrl } = useAuth()
 
   const { onlineUsers } = usePresence({
     boardId: TEST_BOARD_ID,
