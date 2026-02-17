@@ -32,3 +32,6 @@ storybook-static
 
 # tests
 /coverage/
+
+# git worktrees
+.worktrees
