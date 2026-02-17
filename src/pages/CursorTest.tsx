@@ -318,8 +318,8 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     const textEl = textElements.find(t => t.id === editingId)
     if (textEl) {
       updateObject(editingId, { data: { ...textEl.data, text: newText } as TextData })
-      setEditingId(null)
     }
+    setEditingId(null)  // always close, even if object was deleted remotely
   }, [editingId, stickyNotes, textElements, updateObject])
 
   return (
