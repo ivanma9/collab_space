@@ -8,7 +8,7 @@
  */
 
 import { useRef, useEffect } from 'react'
-import { Group, Rect, Circle, Line } from 'react-konva'
+import { Group, Rect, Ellipse, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, RectangleData, CircleData, LineData } from '../../lib/database.types'
 
@@ -90,10 +90,11 @@ export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
         <>
           {/* Invisible anchor rect so Transformer sees the correct (0,0,w,h) bounding box */}
           <Rect width={object.width} height={object.height} fill="transparent" listening={false} />
-          <Circle
+          <Ellipse
             x={object.width / 2}
             y={object.height / 2}
-            radius={Math.min(object.width, object.height) / 2}
+            radiusX={object.width / 2}
+            radiusY={object.height / 2}
             fill={object.data.fillColor}
             stroke={isSelected ? '#4A90E2' : object.data.strokeColor}
             strokeWidth={isSelected ? 3 : object.data.strokeWidth}
