@@ -208,6 +208,10 @@ export function CursorTest() {
           </div>
 
           <div className="text-gray-600">
+            <strong>Selected:</strong> {selectedIds.size}
+          </div>
+
+          <div className="text-gray-600">
             <strong>Your Position:</strong> ({Math.round(cursorPos.x)},{' '}
             {Math.round(cursorPos.y)})
           </div>

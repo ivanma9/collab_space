@@ -8,7 +8,7 @@ import { useState, useCallback } from 'react'
 
 interface UseSelectionReturn {
   selectedIds: Set<string>
-  selectObject: (id: string) => void
+  selectObject: (id: string, multiSelect?: boolean) => void
   deselectObject: (id: string) => void
   toggleSelection: (id: string) => void
   clearSelection: () => void
@@ -18,8 +18,12 @@ interface UseSelectionReturn {
 export function useSelection(): UseSelectionReturn {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const selectObject = useCallback((id: string) => {
-    setSelectedIds((prev) => new Set(prev).add(id))
+  const selectObject = useCallback((id: string, multiSelect = false) => {
+    if (multiSelect) {
+      setSelectedIds((prev) => new Set(prev).add(id))
+    } else {
+      setSelectedIds(new Set([id]))
+    }
   }, [])
 
   const deselectObject = useCallback((id: string) => {

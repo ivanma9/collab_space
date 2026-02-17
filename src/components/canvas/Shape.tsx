@@ -18,7 +18,7 @@ interface ShapeProps {
     | (BoardObject & { type: 'circle'; data: CircleData })
     | (BoardObject & { type: 'line'; data: LineData })
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
-  onSelect?: (id: string) => void
+  onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
 }
 
@@ -55,8 +55,9 @@ export function Shape({ object, onUpdate, onSelect, isSelected }: ShapeProps) {
     })
   }
 
-  const handleClick = () => {
-    onSelect?.(object.id)
+  const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const multiSelect = e.evt.metaKey || e.evt.ctrlKey
+    onSelect?.(object.id, multiSelect)
   }
 
   const renderShape = () => {

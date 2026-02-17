@@ -16,7 +16,7 @@ import type { BoardObject, StickyNoteData } from '../../lib/database.types'
 interface StickyNoteProps {
   object: BoardObject & { type: 'sticky_note'; data: StickyNoteData }
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
-  onSelect?: (id: string) => void
+  onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
 }
 
@@ -86,10 +86,11 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNot
   }
 
   /**
-   * Handle single click - select
+   * Handle single click - select (with Cmd/Ctrl for multi-select)
    */
-  const handleClick = () => {
-    onSelect?.(object.id)
+  const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const multiSelect = e.evt.metaKey || e.evt.ctrlKey
+    onSelect?.(object.id, multiSelect)
   }
 
   return (
