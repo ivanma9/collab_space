@@ -100,7 +100,23 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     updateObject(id, updates)
   }, [updateObject])
 
-  // Delete selected objects on Delete/Backspace key
+  const handleDuplicate = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const OFFSET = 20
+    selectedIds.forEach(id => {
+      const obj = objects.find(o => o.id === id)
+      if (!obj) return
+      const { id: _id, created_at: _ca, updated_at: _ua, created_by: _cb, ...rest } = obj
+      createObject({
+        ...rest,
+        x: obj.x + OFFSET,
+        y: obj.y + OFFSET,
+        z_index: objects.length,
+      })
+    })
+  }, [selectedIds, objects, createObject])
+
+  // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -109,10 +125,14 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         selectedIds.forEach((id) => { deleteObject(id) })
         clearSelection()
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault()
+        handleDuplicate()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIds, deleteObject, clearSelection])
+  }, [selectedIds, deleteObject, clearSelection, handleDuplicate])
 
   // Broadcast cursor position whenever it changes
   const handleCursorMove = useCallback((x: number, y: number) => {
