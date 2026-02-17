@@ -44,6 +44,7 @@ export function BoardStage({
   const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
   const marqueeStart = useRef<{ x: number; y: number } | null>(null)
   const isDraggingMarquee = useRef(false)
+  const justFinishedMarquee = useRef(false)
 
   useEffect(() => {
     onStageTransformChange?.({ x: stagePos.x, y: stagePos.y, scale: stageScale })
@@ -101,6 +102,7 @@ export function BoardStage({
   const handleMouseUp = useCallback(() => {
     if (marquee && isDraggingMarquee.current && onMarqueeSelect) {
       onMarqueeSelect(marquee)
+      justFinishedMarquee.current = true  // stays true through the subsequent click event
     }
     setMarquee(null)
     marqueeStart.current = null
@@ -152,7 +154,10 @@ export function BoardStage({
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       // When a marquee drag just finished, don't fire the click (clear selection)
-      if (isDraggingMarquee.current) return
+      if (justFinishedMarquee.current) {
+        justFinishedMarquee.current = false  // reset after consuming
+        return
+      }
       // Only trigger if clicking the stage itself (not a child)
       if (e.target === e.currentTarget) {
         onStageClick?.()
