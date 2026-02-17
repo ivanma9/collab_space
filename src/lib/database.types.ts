@@ -68,7 +68,7 @@ export type Database = {
         Row: {
           id: string
           board_id: string
-          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text'
+          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
           x: number
           y: number
           width: number
@@ -83,7 +83,7 @@ export type Database = {
         Insert: {
           id?: string
           board_id: string
-          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text'
+          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
           x?: number
           y?: number
           width?: number
@@ -98,7 +98,7 @@ export type Database = {
         Update: {
           id?: string
           board_id?: string
-          type?: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text'
+          type?: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
           x?: number
           y?: number
           width?: number
@@ -158,13 +158,41 @@ export interface StickyNoteData {
 }
 
 /**
- * Shape specific data
+ * Shape specific data (legacy)
  */
 export interface ShapeData {
   shapeType: 'rectangle' | 'circle' | 'triangle' | 'line'
   color: string
   strokeColor?: string
   strokeWidth?: number
+}
+
+/**
+ * Rectangle specific data
+ */
+export interface RectangleData {
+  fillColor: string
+  strokeColor: string
+  strokeWidth: number
+}
+
+/**
+ * Circle specific data
+ */
+export interface CircleData {
+  radius: number
+  fillColor: string
+  strokeColor: string
+  strokeWidth: number
+}
+
+/**
+ * Line specific data
+ */
+export interface LineData {
+  points: number[] // [x1, y1, x2, y2]
+  strokeColor: string
+  strokeWidth: number
 }
 
 /**
@@ -209,6 +237,9 @@ export type BoardObject =
   | (BaseBoardObject & { type: 'frame'; data: FrameData })
   | (BaseBoardObject & { type: 'connector'; data: ConnectorData })
   | (BaseBoardObject & { type: 'text'; data: TextData })
+  | (BaseBoardObject & { type: 'rectangle'; data: RectangleData })
+  | (BaseBoardObject & { type: 'circle'; data: CircleData })
+  | (BaseBoardObject & { type: 'line'; data: LineData })
 
 /**
  * Board type
