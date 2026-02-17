@@ -20,31 +20,32 @@ import { useCursors } from '../hooks/useCursors'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
 import type { BoardObject, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
-
-// Generate a mock user ID for testing (in production, this comes from Supabase Auth)
-const generateMockUser = () => {
-  const storedUserId = localStorage.getItem('test_user_id')
-  const storedUserName = localStorage.getItem('test_user_name')
-
-  if (storedUserId && storedUserName) {
-    return { id: storedUserId, name: storedUserName }
-  }
-
-  const id = `user_${Math.random().toString(36).substring(7)}`
-  const names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank']
-  const name = names[Math.floor(Math.random() * names.length)]!
-
-  localStorage.setItem('test_user_id', id)
-  localStorage.setItem('test_user_name', name)
-
-  return { id, name }
-}
+import { useAuth } from '../contexts/AuthContext'
+import { LoginPage } from './LoginPage'
 
 // Fixed test board ID for all users (must be a valid UUID)
 const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
 
 export function CursorTest() {
-  const [currentUser] = useState(generateMockUser)
+  const { user, displayName, signOut, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <LoginPage />
+  }
+
+  return <CursorTestInner userId={user.id} displayName={displayName} signOut={signOut} />
+}
+
+function CursorTestInner({ userId, displayName, signOut }: { userId: string; displayName: string; signOut: () => Promise<void> }) {
+  const currentUser = { id: userId, name: displayName }
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
@@ -302,14 +303,10 @@ export function CursorTest() {
           </button>
 
           <button
-            onClick={() => {
-              localStorage.removeItem('test_user_id')
-              localStorage.removeItem('test_user_name')
-              window.location.reload()
-            }}
+            onClick={signOut}
             className="w-full px-3 py-2 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700 transition"
           >
-            Generate New User ID
+            Sign out ({displayName})
           </button>
         </div>
       </div>
