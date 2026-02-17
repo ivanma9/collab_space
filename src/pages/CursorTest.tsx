@@ -77,7 +77,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     userId: currentUser.id,
   })
 
-  const { isSelected, selectObject, clearSelection, selectedIds } = useSelection()
+  const { isSelected, selectObject, clearSelection, selectedIds, selectMultiple } = useSelection()
 
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
 
@@ -119,6 +119,19 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     setCursorPos({ x, y })
     broadcastCursor(x, y)
   }
+
+  // Handle marquee (drag-to-select) selection
+  const handleMarqueeSelect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
+    const selected = objects.filter(obj =>
+      obj.x < rect.x + rect.width &&
+      obj.x + obj.width > rect.x &&
+      obj.y < rect.y + rect.height &&
+      obj.y + obj.height > rect.y
+    )
+    if (selected.length > 0) {
+      selectMultiple(selected.map(o => o.id))
+    }
+  }, [objects, selectMultiple])
 
   // Create a sticky note at current cursor position
   const handleCreateStickyNote = async () => {
@@ -352,7 +365,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       <PresenceBar onlineUsers={onlineUsers} currentUserId={userId} />
 
       {/* Canvas */}
-      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform}>
+      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
         {/* Render shapes first (lower z-index) */}
         {shapes.map((shape) => (
           <Shape

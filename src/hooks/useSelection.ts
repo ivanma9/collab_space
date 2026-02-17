@@ -13,6 +13,7 @@ interface UseSelectionReturn {
   toggleSelection: (id: string) => void
   clearSelection: () => void
   isSelected: (id: string) => boolean
+  selectMultiple: (ids: string[]) => void
 }
 
 export function useSelection(): UseSelectionReturn {
@@ -55,6 +56,10 @@ export function useSelection(): UseSelectionReturn {
     [selectedIds]
   )
 
+  const selectMultiple = useCallback((ids: string[]) => {
+    setSelectedIds(new Set(ids))
+  }, [])
+
   return {
     selectedIds,
     selectObject,
@@ -62,5 +67,6 @@ export function useSelection(): UseSelectionReturn {
     toggleSelection,
     clearSelection,
     isSelected,
+    selectMultiple,
   }
 }
