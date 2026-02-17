@@ -37,7 +37,7 @@ export function LoginPage() {
         <p className="text-gray-500 text-center">Real-time collaborative whiteboard</p>
         <button
           onClick={handleSignIn}
-          disabled={isPending}
+          disabled={isPending || isGuestPending}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition font-medium text-gray-700"
         >
           <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
