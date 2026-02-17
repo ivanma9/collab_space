@@ -10,7 +10,7 @@
  * 4. Target: Cursor sync should feel instant (<50ms latency)
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { StickyNote } from '../components/canvas/StickyNote'
@@ -51,12 +51,26 @@ export function CursorTest() {
     userName: currentUser.name,
   })
 
-  const { objects, createObject, updateObject, isLoading, error } = useRealtimeSync({
+  const { objects, createObject, updateObject, deleteObject, isLoading, error } = useRealtimeSync({
     boardId: TEST_BOARD_ID,
     userId: currentUser.id,
   })
 
-  const { isSelected, selectObject, clearSelection } = useSelection()
+  const { isSelected, selectObject, clearSelection, selectedIds } = useSelection()
+
+  // Delete selected objects on Delete/Backspace key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        selectedIds.forEach((id) => { deleteObject(id) })
+        clearSelection()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIds, deleteObject, clearSelection])
 
   // Broadcast cursor position whenever it changes
   const handleCursorMove = (x: number, y: number) => {
@@ -156,6 +170,17 @@ export function CursorTest() {
             className="w-full px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 rounded text-white font-medium transition"
           >
             {isLoading ? 'Creating...' : '+ Add Sticky Note'}
+          </button>
+
+          <button
+            onClick={() => {
+              selectedIds.forEach((id) => { deleteObject(id) })
+              clearSelection()
+            }}
+            disabled={selectedIds.size === 0}
+            className="w-full px-3 py-2 text-sm bg-red-500 hover:bg-red-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+          >
+            {selectedIds.size > 0 ? `Delete Selected (${selectedIds.size})` : 'Delete Selected'}
           </button>
 
           <button

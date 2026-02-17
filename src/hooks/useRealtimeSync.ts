@@ -300,11 +300,14 @@ export function useRealtimeSync({
    */
   const deleteObject = useCallback(async (id: string) => {
     try {
+      console.log('🗑️ Deleting object:', id)
+
       // 1. Optimistic update
       setObjects((prev) => prev.filter((obj) => obj.id !== id))
 
       // 2. Broadcast to other clients
       if (channelRef.current) {
+        console.log('📡 Broadcasting object_deleted:', id)
         channelRef.current.send({
           type: 'broadcast',
           event: 'object_deleted',
@@ -319,8 +322,10 @@ export function useRealtimeSync({
         .eq('id', id)
 
       if (deleteError) throw deleteError
+
+      console.log('✅ Object deleted successfully:', id)
     } catch (err) {
-      console.error('Error deleting object:', err)
+      console.error('❌ Error deleting object:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete object')
     }
   }, [])
@@ -368,6 +373,7 @@ export function useRealtimeSync({
     // Listen for object deletion broadcasts
     channel.on('broadcast', { event: 'object_deleted' }, ({ payload }) => {
       const { id } = payload as { id: string }
+      console.log('📥 Received object_deleted broadcast:', id)
       setObjects((prev) => prev.filter((obj) => obj.id !== id))
     })
 
