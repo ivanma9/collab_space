@@ -10,7 +10,7 @@
  * 4. Target: Cursor sync should feel instant (<50ms latency)
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
@@ -89,9 +89,16 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     nodeRefs.current.delete(id)
   }, [])
 
-  const selectedNodes = Array.from(selectedIds)
-    .map(id => nodeRefs.current.get(id))
-    .filter((n): n is Konva.Group => n != null)
+  const selectedNodes = useMemo(() =>
+    Array.from(selectedIds)
+      .map(id => nodeRefs.current.get(id))
+      .filter((n): n is Konva.Group => n != null),
+    [selectedIds]
+  )
+
+  const handleTransformEnd = useCallback((id: string, updates: { x: number; y: number; width: number; height: number; rotation: number }) => {
+    updateObject(id, updates)
+  }, [updateObject])
 
   // Delete selected objects on Delete/Backspace key
   useEffect(() => {
@@ -375,7 +382,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
         <SelectionTransformer
           selectedNodes={selectedNodes}
-          onTransformEnd={(id, updates) => updateObject(id, updates)}
+          onTransformEnd={handleTransformEnd}
         />
 
         {/* Render all remote cursors */}

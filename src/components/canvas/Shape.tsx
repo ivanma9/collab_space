@@ -27,10 +27,15 @@ interface ShapeProps {
 export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: ShapeProps) {
   const groupRef = useRef<Konva.Group>(null)
 
+  const onMountRef = useRef(onMount)
+  const onUnmountRef = useRef(onUnmount)
+  onMountRef.current = onMount
+  onUnmountRef.current = onUnmount
+
   useEffect(() => {
-    if (groupRef.current) onMount?.(object.id, groupRef.current)
-    return () => onUnmount?.(object.id)
-  }, [object.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (groupRef.current) onMountRef.current?.(object.id, groupRef.current)
+    return () => onUnmountRef.current?.(object.id)
+  }, [object.id])
 
   const lastDragUpdate = useRef<number>(0)
   const handleDragMove = (_e: Konva.KonvaEventObject<DragEvent>) => {

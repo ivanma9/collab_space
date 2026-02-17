@@ -26,10 +26,15 @@ interface StickyNoteProps {
 export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
   const groupRef = useRef<Konva.Group>(null)
 
+  const onMountRef = useRef(onMount)
+  const onUnmountRef = useRef(onUnmount)
+  onMountRef.current = onMount
+  onUnmountRef.current = onUnmount
+
   useEffect(() => {
-    if (groupRef.current) onMount?.(object.id, groupRef.current)
-    return () => onUnmount?.(object.id)
-  }, [object.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (groupRef.current) onMountRef.current?.(object.id, groupRef.current)
+    return () => onUnmountRef.current?.(object.id)
+  }, [object.id])
 
   /**
    * Handle drag move - broadcast position updates during drag for smooth sync
@@ -70,8 +75,6 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit
     // Get the final position after drag
     const newX = group.x()
     const newY = group.y()
-
-    console.log(`[StickyNote] Drag ended for ${object.id.substring(0, 20)}... at position (${Math.round(newX)}, ${Math.round(newY)})`)
 
     // Update the object position (will persist to DB)
     onUpdate(object.id, {

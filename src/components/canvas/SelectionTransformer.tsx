@@ -17,7 +17,8 @@ export function SelectionTransformer({ selectedNodes, onTransformEnd }: Selectio
   }, [selectedNodes])
 
   const handleTransformEnd = () => {
-    selectedNodes.forEach((node) => {
+    const nodes = trRef.current?.nodes() ?? []
+    nodes.forEach((node) => {
       const id = node.id()
       if (!id) return
       onTransformEnd(id, {
