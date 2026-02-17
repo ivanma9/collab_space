@@ -21,6 +21,9 @@ import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
+import { useAIAgent } from '../hooks/useAIAgent'
+import type { BoardOperation } from '../hooks/useAIAgent'
+import { AICommandInput } from '../components/ai/AICommandInput'
 import type { BoardObject, ConnectorData, FrameData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
@@ -310,6 +313,71 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     })
     setConnectorMode(null)
   }, [connectorMode, createObject])
+
+  const handleAIOperation = useCallback(async (op: BoardOperation) => {
+    switch (op.tool) {
+      case 'createStickyNote': {
+        const p = op.params as { text: string; x: number; y: number; color?: string }
+        await createObject({
+          board_id: TEST_BOARD_ID, type: 'sticky_note',
+          x: p.x, y: p.y, width: 200, height: 150, rotation: 0,
+          z_index: objectsRef.current.length,
+          data: { text: p.text, color: p.color ?? '#FFD700' },
+        })
+        break
+      }
+      case 'createShape': {
+        const p = op.params as { type: 'rectangle' | 'circle'; x: number; y: number; width: number; height: number; fillColor?: string }
+        await createObject({
+          board_id: TEST_BOARD_ID, type: p.type,
+          x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
+          z_index: objectsRef.current.length,
+          data: p.type === 'circle'
+            ? { radius: Math.min(p.width, p.height) / 2, fillColor: p.fillColor ?? '#4ECDC4', strokeColor: '#2D3436', strokeWidth: 2 }
+            : { fillColor: p.fillColor ?? '#4ECDC4', strokeColor: '#2D3436', strokeWidth: 2 },
+        })
+        break
+      }
+      case 'createFrame': {
+        const p = op.params as { title: string; x: number; y: number; width: number; height: number }
+        await createObject({
+          board_id: TEST_BOARD_ID, type: 'frame',
+          x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
+          z_index: -(objectsRef.current.filter(o => o.type === 'frame').length + 1),
+          data: { title: p.title, backgroundColor: 'rgba(240,240,240,0.5)' },
+        })
+        break
+      }
+      case 'createConnector': {
+        const p = op.params as { fromId: string; toId: string; style?: string }
+        await createObject({
+          board_id: TEST_BOARD_ID, type: 'connector',
+          x: 0, y: 0, width: 0, height: 0, rotation: 0,
+          z_index: objectsRef.current.length,
+          data: { fromId: p.fromId, toId: p.toId, style: (p.style ?? 'arrow') as 'arrow' | 'line' | 'dashed' },
+        })
+        break
+      }
+      case 'moveObject': {
+        const p = op.params as { objectId: string; x: number; y: number }
+        updateObject(p.objectId, { x: p.x, y: p.y })
+        break
+      }
+      case 'updateText': {
+        const p = op.params as { objectId: string; newText: string }
+        const obj = objectsRef.current.find(o => o.id === p.objectId)
+        if (!obj) break
+        const d = obj.data as unknown as Record<string, unknown>
+        updateObject(p.objectId, { data: { ...d, text: p.newText } as any })
+        break
+      }
+    }
+  }, [createObject, updateObject])
+
+  const { executeCommand, isProcessing: aiProcessing, lastResult: aiResult, error: aiError } = useAIAgent({
+    boardId: TEST_BOARD_ID,
+    onOperation: handleAIOperation,
+  })
 
   const handleObjectClick = useCallback((id: string, multiSelect = false) => {
     if (connectorMode) {
@@ -612,6 +680,13 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           ⚠️ Not connected to Supabase Realtime
         </div>
       )}
+
+      <AICommandInput
+        onSubmit={executeCommand}
+        isProcessing={aiProcessing}
+        lastResult={aiResult}
+        error={aiError}
+      />
     </div>
   )
 }
