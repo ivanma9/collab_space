@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { Connector } from '../components/canvas/Connector'
+import { Frame } from '../components/canvas/Frame'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
@@ -20,7 +21,7 @@ import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
-import type { BoardObject, ConnectorData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
+import type { BoardObject, ConnectorData, FrameData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
 import type Konva from 'konva'
@@ -254,6 +255,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     })
   }, [createObject, cursorPos])
 
+  const handleCreateFrame = useCallback(async () => {
+    await createObject({
+      board_id: TEST_BOARD_ID,
+      type: 'frame',
+      x: cursorPos.x || 100,
+      y: cursorPos.y || 100,
+      width: 400,
+      height: 300,
+      rotation: 0,
+      z_index: 0,  // Frames render behind everything — always z_index 0
+      data: { title: 'New Frame', backgroundColor: 'rgba(240,240,240,0.5)' } satisfies FrameData,
+    })
+  }, [createObject, cursorPos])
+
   // Filter sticky notes from all objects
   const stickyNotes = objects.filter(
     (obj): obj is BoardObject & { type: 'sticky_note'; data: StickyNoteData } =>
@@ -273,6 +288,11 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const textElements = objects.filter(
     (obj): obj is BoardObject & { type: 'text'; data: TextData } =>
       obj.type === 'text'
+  )
+
+  const frames = objects.filter(
+    (obj): obj is BoardObject & { type: 'frame'; data: FrameData } =>
+      obj.type === 'frame'
   )
 
   const handleCreateConnector = useCallback((toId: string) => {
@@ -354,7 +374,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           </div>
 
           <div className="text-gray-600">
-            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length}, Text: {textElements.length})
+            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length}, Text: {textElements.length}, Frames: {frames.length})
           </div>
 
           <div className="text-gray-600">
@@ -429,6 +449,14 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           </button>
 
           <button
+            onClick={handleCreateFrame}
+            disabled={isLoading}
+            className="w-full px-3 py-2 text-sm bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+          >
+            {isLoading ? 'Creating...' : '+ Add Frame'}
+          </button>
+
+          <button
             onClick={() => {
               selectedIds.forEach((id) => { deleteObject(id) })
               clearSelection()
@@ -473,7 +501,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
       {/* Canvas */}
       <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
-        {/* Render connectors first (behind everything) */}
+        {/* Render frames first (behind everything) */}
+        {frames.map((frame) => (
+          <Frame
+            key={frame.id}
+            object={frame}
+            onUpdate={updateObject}
+            onSelect={handleObjectClick}
+            isSelected={isSelected(frame.id)}
+            onMount={handleNodeMount}
+            onUnmount={handleNodeUnmount}
+          />
+        ))}
+
+        {/* Render connectors (behind shapes) */}
         {connectors.map(c => (
           <Connector
             key={c.id}
