@@ -8,12 +8,13 @@ interface TextElementProps {
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
   onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
+  isEditing?: boolean
   onStartEdit?: (id: string) => void
   onMount?: (id: string, node: Konva.Group) => void
   onUnmount?: (id: string) => void
 }
 
-export function TextElement({ object, onUpdate, onSelect, isSelected, onStartEdit, onMount, onUnmount }: TextElementProps) {
+export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: TextElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const lastDrag = useRef(0)
 
@@ -47,7 +48,7 @@ export function TextElement({ object, onUpdate, onSelect, isSelected, onStartEdi
       onDblClick={() => { onSelect?.(object.id); onStartEdit?.(object.id) }}
     >
       <Text
-        text={object.data.text || 'Double-click to edit'}
+        text={isEditing ? '' : (object.data.text || 'Double-click to edit')}
         fontSize={object.data.fontSize || 16}
         fill={object.data.color || '#000000'}
         fontFamily={object.data.fontFamily || 'Arial, sans-serif'}

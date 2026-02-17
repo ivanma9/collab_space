@@ -102,8 +102,16 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     [selectedIds]
   )
 
-  const handleTransformEnd = useCallback((id: string, updates: { x: number; y: number; width: number; height: number; rotation: number }) => {
-    updateObject(id, updates)
+  const handleTransformEnd = useCallback((id: string, updates: { x: number; y: number; scaleX: number; scaleY: number; rotation: number }) => {
+    const obj = objectsRef.current.find(o => o.id === id)
+    if (!obj) return
+    updateObject(id, {
+      x: updates.x,
+      y: updates.y,
+      width: Math.max(20, obj.width * updates.scaleX),
+      height: Math.max(20, obj.height * updates.scaleY),
+      rotation: updates.rotation,
+    })
   }, [updateObject])
 
   const handleDuplicate = useCallback(() => {
@@ -628,6 +636,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onUpdate={updateObject}
             onSelect={handleObjectClick}
             isSelected={isSelected(textEl.id)}
+            isEditing={editingId === textEl.id}
             onStartEdit={handleStartEdit}
             onMount={handleNodeMount}
             onUnmount={handleNodeUnmount}
@@ -658,7 +667,9 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         const screenY = obj.y * stageTransform.scale + stageTransform.y
         const screenW = obj.width * stageTransform.scale
         const screenH = (note ? obj.height : Math.max(obj.height, 40)) * stageTransform.scale
-        const color = note ? note.data.color : '#FFFFFF'
+        const color = note ? note.data.color : 'transparent'
+        const fontSize = note ? 14 : (textEl?.data.fontSize ?? 16)
+        const padding = note ? 8 : 0
         return (
           <TextEditOverlay
             text={obj.data.text}
@@ -668,6 +679,8 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             height={screenH}
             color={color}
             scale={stageTransform.scale}
+            fontSize={fontSize}
+            padding={padding}
             onSave={handleSaveEdit}
             onClose={() => setEditingId(null)}
           />

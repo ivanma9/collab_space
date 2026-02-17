@@ -34,6 +34,7 @@ export function usePresence({ boardId, userId, userName, avatarUrl }: UsePresenc
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
+        const seen = new Set<string>()
         const users: OnlineUser[] = Object.values(state)
           .flat()
           .filter(
@@ -42,6 +43,11 @@ export function usePresence({ boardId, userId, userName, avatarUrl }: UsePresenc
               typeof (u as Record<string, unknown>)['userName'] === 'string'
           )
           .map((u) => u as unknown as OnlineUser)
+          .filter((u) => {
+            if (seen.has(u.userId)) return false
+            seen.add(u.userId)
+            return true
+          })
         setOnlineUsers(users)
       })
       .subscribe(async (status) => {

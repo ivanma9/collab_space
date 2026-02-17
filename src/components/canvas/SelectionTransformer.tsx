@@ -4,7 +4,7 @@ import type Konva from 'konva'
 
 interface SelectionTransformerProps {
   selectedNodes: Konva.Node[]
-  onTransformEnd: (id: string, updates: { x: number; y: number; width: number; height: number; rotation: number }) => void
+  onTransformEnd: (id: string, updates: { x: number; y: number; scaleX: number; scaleY: number; rotation: number }) => void
 }
 
 export function SelectionTransformer({ selectedNodes, onTransformEnd }: SelectionTransformerProps) {
@@ -21,15 +21,17 @@ export function SelectionTransformer({ selectedNodes, onTransformEnd }: Selectio
     nodes.forEach((node) => {
       const id = node.id()
       if (!id) return
-      onTransformEnd(id, {
-        x: node.x(),
-        y: node.y(),
-        width: Math.max(20, node.width() * node.scaleX()),
-        height: Math.max(20, node.height() * node.scaleY()),
-        rotation: node.rotation(),
-      })
+      // Capture scale BEFORE resetting — node.width() returns 0 for Groups,
+      // so the caller uses their stored width * scaleX to get the new size.
+      const scaleX = node.scaleX()
+      const scaleY = node.scaleY()
+      const x = node.x()
+      const y = node.y()
+      const rotation = node.rotation()
+      // Reset scale first so the Konva node is clean before React re-renders.
       node.scaleX(1)
       node.scaleY(1)
+      onTransformEnd(id, { x, y, scaleX, scaleY, rotation })
     })
   }
 
