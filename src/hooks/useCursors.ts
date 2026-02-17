@@ -40,7 +40,7 @@ const getUserColor = (userId: string): string => {
   const hash = userId.split('').reduce((acc, char) => {
     return char.charCodeAt(0) + ((acc << 5) - acc)
   }, 0)
-  return colors[Math.abs(hash) % colors.length]
+  return colors[Math.abs(hash) % colors.length]!
 }
 
 /**
@@ -150,7 +150,6 @@ export function useCursors({
     const STALE_TIMEOUT = 5000 // 5 seconds
 
     const interval = setInterval(() => {
-      const now = Date.now()
       setCursors((prev) => {
         const next = new Map(prev)
         let changed = false

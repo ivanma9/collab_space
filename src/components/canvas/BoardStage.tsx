@@ -15,6 +15,7 @@ import type Konva from 'konva'
 interface BoardStageProps {
   children?: React.ReactNode
   onCursorMove?: (x: number, y: number) => void
+  onStageClick?: () => void
   width?: number
   height?: number
 }
@@ -27,6 +28,7 @@ const ZOOM_SPEED = 0.1
 export function BoardStage({
   children,
   onCursorMove,
+  onStageClick,
   width = window.innerWidth,
   height = window.innerHeight,
 }: BoardStageProps) {
@@ -38,7 +40,7 @@ export function BoardStage({
    * Handle mouse move to track cursor position
    */
   const handleMouseMove = useCallback(
-    (e: Konva.KonvaEventObject<MouseEvent>) => {
+    (_e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!onCursorMove || !stageRef.current) return
 
       const stage = stageRef.current
@@ -94,6 +96,19 @@ export function BoardStage({
     []
   )
 
+  /**
+   * Handle stage click to clear selection
+   */
+  const handleStageClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      // Only trigger if clicking the stage itself (not a child)
+      if (e.target === e.currentTarget) {
+        onStageClick?.()
+      }
+    },
+    [onStageClick]
+  )
+
   return (
     <Stage
       ref={stageRef}
@@ -106,6 +121,7 @@ export function BoardStage({
       scaleY={stageScale}
       onMouseMove={handleMouseMove}
       onWheel={handleWheel}
+      onClick={handleStageClick}
       style={{ cursor: 'default' }}
     >
       <Layer>{children}</Layer>
