@@ -1,13 +1,9 @@
 /**
- * CursorTest Page
+ * CursorTest Page (Main Board)
  *
- * Test page for validating cursor sync latency with Pattern B architecture.
- *
- * Testing Instructions:
- * 1. Open this page in two browser windows side-by-side
- * 2. Move your mouse in one window
- * 3. Observe the cursor appear in the other window
- * 4. Target: Cursor sync should feel instant (<50ms latency)
+ * Primary board page hosting the collaborative whiteboard canvas.
+ * Includes sticky notes, shapes, connectors, frames, text elements,
+ * real-time sync, presence, and multi-user cursor tracking.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
@@ -80,6 +76,9 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   })
 
   const { isSelected, selectObject, clearSelection, selectedIds, selectMultiple } = useSelection()
+
+  const objectsRef = useRef(objects)
+  objectsRef.current = objects
 
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
 
@@ -266,11 +265,11 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       width: 0,
       height: 0,
       rotation: 0,
-      z_index: objects.length,
+      z_index: objectsRef.current.length,
       data: { fromId: connectorMode.fromId, toId, style: 'arrow' } as ConnectorData,
     })
     setConnectorMode(null)
-  }, [connectorMode, createObject, objects.length])
+  }, [connectorMode, createObject])
 
   const handleObjectClick = useCallback((id: string, multiSelect = false) => {
     if (connectorMode) {
@@ -293,7 +292,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     const note = stickyNotes.find(n => n.id === editingNote.id)
     if (note) {
       updateObject(editingNote.id, {
-        data: { text: newText, color: note.data.color } as any,
+        data: { text: newText, color: note.data.color } as StickyNoteData,
       })
     }
     setEditingNote(null)
