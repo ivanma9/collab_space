@@ -90,7 +90,7 @@ export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
         <Circle
           x={object.width / 2}
           y={object.height / 2}
-          radius={object.data.radius}
+          radius={Math.min(object.width, object.height) / 2}
           fill={object.data.fillColor}
           stroke={isSelected ? '#4A90E2' : object.data.strokeColor}
           strokeWidth={isSelected ? 3 : object.data.strokeWidth}

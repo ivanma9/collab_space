@@ -4,17 +4,18 @@ import type Konva from 'konva'
 
 interface SelectionTransformerProps {
   selectedNodes: Konva.Node[]
+  transformVersion: number
   onTransformEnd: (id: string, updates: { x: number; y: number; scaleX: number; scaleY: number; rotation: number }) => void
 }
 
-export function SelectionTransformer({ selectedNodes, onTransformEnd }: SelectionTransformerProps) {
+export function SelectionTransformer({ selectedNodes, transformVersion, onTransformEnd }: SelectionTransformerProps) {
   const trRef = useRef<Konva.Transformer>(null)
 
   useEffect(() => {
     if (!trRef.current) return
     trRef.current.nodes(selectedNodes)
     trRef.current.getLayer()?.batchDraw()
-  }, [selectedNodes])
+  }, [selectedNodes, transformVersion])
 
   const handleTransformEnd = () => {
     const nodes = trRef.current?.nodes() ?? []

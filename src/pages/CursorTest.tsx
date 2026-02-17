@@ -60,6 +60,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
+  const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
 
   const { onlineUsers } = usePresence({
@@ -112,6 +113,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       height: Math.max(20, obj.height * updates.scaleY),
       rotation: updates.rotation,
     })
+    setTransformVersion(v => v + 1)
   }, [updateObject])
 
   const handleDuplicate = useCallback(() => {
@@ -645,6 +647,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
         <SelectionTransformer
           selectedNodes={selectedNodes}
+          transformVersion={transformVersion}
           onTransformEnd={handleTransformEnd}
         />
 

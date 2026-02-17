@@ -18,11 +18,17 @@ export function TextEditOverlay({ text, x, y, width, height, color, scale, fontS
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cancelledRef = useRef(false)
 
+  const autoResize = (ta: HTMLTextAreaElement) => {
+    ta.style.height = 'auto'
+    ta.style.height = `${ta.scrollHeight}px`
+  }
+
   useEffect(() => {
     const ta = textareaRef.current
     if (!ta) return
     ta.focus()
     ta.select()
+    autoResize(ta)
   }, [])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -49,12 +55,14 @@ export function TextEditOverlay({ text, x, y, width, height, color, scale, fontS
       defaultValue={text}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
+      onInput={(e) => autoResize(e.currentTarget)}
       style={{
         position: 'absolute',
         top: y + padding,
         left: x + padding,
         width: width - padding * 2,
-        height: height - padding * 2,
+        minHeight: height - padding * 2,
+        height: 'auto',
         background: color,
         border: '2px solid #4A90E2',
         borderRadius: '4px',
@@ -64,8 +72,9 @@ export function TextEditOverlay({ text, x, y, width, height, color, scale, fontS
         resize: 'none',
         outline: 'none',
         zIndex: 1000,
-        overflow: 'auto',
+        overflow: 'hidden',
         lineHeight: '1.4',
+        boxSizing: 'border-box',
       }}
     />
   )
