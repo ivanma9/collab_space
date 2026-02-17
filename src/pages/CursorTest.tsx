@@ -14,12 +14,13 @@ import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
 import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
+import { TextElement } from '../components/canvas/TextElement'
 import { PresenceBar } from '../components/presence/PresenceBar'
 import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
-import type { BoardObject, ConnectorData, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
+import type { BoardObject, ConnectorData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
 import type Konva from 'konva'
@@ -53,7 +54,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 }) {
   const currentUser = { id: userId, name: displayName }
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
-  const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
 
@@ -239,6 +240,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     })
   }
 
+  const handleCreateText = useCallback(async () => {
+    await createObject({
+      board_id: TEST_BOARD_ID,
+      type: 'text',
+      x: cursorPos.x || 300,
+      y: cursorPos.y || 300,
+      width: 200,
+      height: 40,
+      rotation: 0,
+      z_index: objectsRef.current.length,
+      data: { text: 'New text', fontSize: 18, color: '#000000' } satisfies TextData,
+    })
+  }, [createObject, cursorPos])
+
   // Filter sticky notes from all objects
   const stickyNotes = objects.filter(
     (obj): obj is BoardObject & { type: 'sticky_note'; data: StickyNoteData } =>
@@ -253,6 +268,11 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const connectors = objects.filter(
     (obj): obj is BoardObject & { type: 'connector'; data: ConnectorData } =>
       obj.type === 'connector'
+  )
+
+  const textElements = objects.filter(
+    (obj): obj is BoardObject & { type: 'text'; data: TextData } =>
+      obj.type === 'text'
   )
 
   const handleCreateConnector = useCallback((toId: string) => {
@@ -281,22 +301,26 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     selectObject(id, multiSelect)
   }, [connectorMode, handleCreateConnector, selectObject])
 
-  // Handle starting edit on a sticky note
-  const handleStartEdit = (noteId: string) => {
-    setEditingNote({ id: noteId })
-  }
+  // Handle starting edit on a sticky note or text element
+  const handleStartEdit = useCallback((id: string) => {
+    setEditingId(id)
+  }, [])
 
   // Handle saving edited text
-  const handleSaveEdit = (newText: string) => {
-    if (!editingNote) return
-    const note = stickyNotes.find(n => n.id === editingNote.id)
+  const handleSaveEdit = useCallback((newText: string) => {
+    if (!editingId) return
+    const note = stickyNotes.find(n => n.id === editingId)
     if (note) {
-      updateObject(editingNote.id, {
-        data: { text: newText, color: note.data.color } as StickyNoteData,
-      })
+      updateObject(editingId, { data: { text: newText, color: note.data.color } as StickyNoteData })
+      setEditingId(null)
+      return
     }
-    setEditingNote(null)
-  }
+    const textEl = textElements.find(t => t.id === editingId)
+    if (textEl) {
+      updateObject(editingId, { data: { ...textEl.data, text: newText } as TextData })
+      setEditingId(null)
+    }
+  }, [editingId, stickyNotes, textElements, updateObject])
 
   return (
     <div
@@ -330,7 +354,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           </div>
 
           <div className="text-gray-600">
-            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length})
+            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length}, Text: {textElements.length})
           </div>
 
           <div className="text-gray-600">
@@ -394,6 +418,14 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             className="w-full px-3 py-2 text-sm bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 rounded text-white font-medium transition"
           >
             {isLoading ? 'Creating...' : '+ Add Line'}
+          </button>
+
+          <button
+            onClick={handleCreateText}
+            disabled={isLoading}
+            className="w-full px-3 py-2 text-sm bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+          >
+            {isLoading ? 'Creating...' : '+ Add Text'}
           </button>
 
           <button
@@ -479,6 +511,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           />
         ))}
 
+        {/* Render all text elements */}
+        {textElements.map((textEl) => (
+          <TextElement
+            key={textEl.id}
+            object={textEl}
+            onUpdate={updateObject}
+            onSelect={handleObjectClick}
+            isSelected={isSelected(textEl.id)}
+            onStartEdit={handleStartEdit}
+            onMount={handleNodeMount}
+            onUnmount={handleNodeUnmount}
+          />
+        ))}
+
         <SelectionTransformer
           selectedNodes={selectedNodes}
           onTransformEnd={handleTransformEnd}
@@ -494,24 +540,27 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       </BoardStage>
 
       {/* Text edit overlay */}
-      {editingNote && (() => {
-        const note = stickyNotes.find(n => n.id === editingNote.id)
-        if (!note) return null
-        const screenX = note.x * stageTransform.scale + stageTransform.x
-        const screenY = note.y * stageTransform.scale + stageTransform.y
-        const screenW = note.width * stageTransform.scale
-        const screenH = note.height * stageTransform.scale
+      {editingId && (() => {
+        const note = stickyNotes.find(n => n.id === editingId)
+        const textEl = textElements.find(t => t.id === editingId)
+        const obj = note ?? textEl
+        if (!obj) return null
+        const screenX = obj.x * stageTransform.scale + stageTransform.x
+        const screenY = obj.y * stageTransform.scale + stageTransform.y
+        const screenW = obj.width * stageTransform.scale
+        const screenH = (note ? obj.height : Math.max(obj.height, 40)) * stageTransform.scale
+        const color = note ? note.data.color : '#FFFFFF'
         return (
           <TextEditOverlay
-            text={note.data.text}
+            text={obj.data.text}
             x={screenX}
             y={screenY}
             width={screenW}
             height={screenH}
-            color={note.data.color}
+            color={color}
             scale={stageTransform.scale}
             onSave={handleSaveEdit}
-            onClose={() => setEditingNote(null)}
+            onClose={() => setEditingId(null)}
           />
         )
       })()}
