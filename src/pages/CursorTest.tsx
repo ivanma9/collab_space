@@ -15,6 +15,7 @@ import { BoardStage } from '../components/canvas/BoardStage'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
+import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { useCursors } from '../hooks/useCursors'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
@@ -45,6 +46,8 @@ const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
 export function CursorTest() {
   const [currentUser] = useState(generateMockUser)
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
+  const [editingNote, setEditingNote] = useState<{ id: string; text: string; x: number; y: number; width: number; height: number; color: string } | null>(null)
+  const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
 
   const { cursors, broadcastCursor, isConnected } = useCursors({
     boardId: TEST_BOARD_ID,
@@ -94,7 +97,7 @@ export function CursorTest() {
       rotation: 0,
       z_index: objects.length,
       data: {
-        text: 'New sticky note!\nDouble-click to edit (coming soon)',
+        text: 'New sticky note!\nDouble-click to edit',
         color: randomColor,
       },
     })
@@ -174,6 +177,37 @@ export function CursorTest() {
     (obj): obj is BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData } =>
       obj.type === 'rectangle' || obj.type === 'circle' || obj.type === 'line'
   )
+
+  // Handle starting edit on a sticky note
+  const handleStartEdit = (noteId: string) => {
+    const note = stickyNotes.find(n => n.id === noteId)
+    if (!note) return
+    const screenX = note.x * stageTransform.scale + stageTransform.x
+    const screenY = note.y * stageTransform.scale + stageTransform.y
+    const screenW = note.width * stageTransform.scale
+    const screenH = note.height * stageTransform.scale
+    setEditingNote({
+      id: noteId,
+      text: note.data.text,
+      x: screenX,
+      y: screenY,
+      width: screenW,
+      height: screenH,
+      color: note.data.color,
+    })
+  }
+
+  // Handle saving edited text
+  const handleSaveEdit = (newText: string) => {
+    if (!editingNote) return
+    const note = stickyNotes.find(n => n.id === editingNote.id)
+    if (note) {
+      updateObject(editingNote.id, {
+        data: { text: newText, color: note.data.color } as any,
+      })
+    }
+    setEditingNote(null)
+  }
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-gray-100">
@@ -295,7 +329,7 @@ export function CursorTest() {
       </div>
 
       {/* Canvas */}
-      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection}>
+      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform}>
         {/* Render shapes first (lower z-index) */}
         {shapes.map((shape) => (
           <Shape
@@ -315,6 +349,7 @@ export function CursorTest() {
             onUpdate={updateObject}
             onSelect={selectObject}
             isSelected={isSelected(note.id)}
+            onStartEdit={handleStartEdit}
           />
         ))}
 
@@ -326,6 +361,20 @@ export function CursorTest() {
         {/* Grid background (optional visual aid) */}
         {/* You can add a grid here later for better spatial reference */}
       </BoardStage>
+
+      {/* Text edit overlay */}
+      {editingNote && (
+        <TextEditOverlay
+          text={editingNote.text}
+          x={editingNote.x}
+          y={editingNote.y}
+          width={editingNote.width}
+          height={editingNote.height}
+          color={editingNote.color}
+          onSave={handleSaveEdit}
+          onClose={() => setEditingNote(null)}
+        />
+      )}
 
       {/* Latency Warning */}
       {!isConnected && (

@@ -8,7 +8,7 @@
  * - Shadow for depth
  */
 
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, StickyNoteData } from '../../lib/database.types'
@@ -18,11 +18,11 @@ interface StickyNoteProps {
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
   onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
+  onStartEdit?: (id: string) => void
 }
 
-export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNoteProps) {
+export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit }: StickyNoteProps) {
   const groupRef = useRef<Konva.Group>(null)
-  const [isEditing, setIsEditing] = useState(false)
 
   /**
    * Handle drag move - broadcast position updates during drag for smooth sync
@@ -74,15 +74,11 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNot
   }
 
   /**
-   * Handle double-click - enter edit mode
-   * TODO: Implement text editing in a future iteration
+   * Handle double-click - enter edit mode via overlay
    */
   const handleDoubleClick = () => {
-    setIsEditing(true)
     onSelect?.(object.id)
-    // Text editing will be implemented with a textarea overlay
-    // For now, just show that double-click is detected
-    console.log('Double-clicked sticky note:', object.id)
+    onStartEdit?.(object.id)
   }
 
   /**
@@ -133,17 +129,6 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNot
         wrap="word"
       />
 
-      {/* Edit indicator when editing */}
-      {isEditing && (
-        <Rect
-          width={object.width}
-          height={object.height}
-          stroke="#4A90E2"
-          strokeWidth={2}
-          cornerRadius={4}
-          dash={[5, 5]}
-        />
-      )}
     </Group>
   )
 }

@@ -8,7 +8,7 @@
  * - Cursor position tracking
  */
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Stage, Layer } from 'react-konva'
 import type Konva from 'konva'
 
@@ -16,6 +16,7 @@ interface BoardStageProps {
   children?: React.ReactNode
   onCursorMove?: (x: number, y: number) => void
   onStageClick?: () => void
+  onStageTransformChange?: (pos: { x: number; y: number; scale: number }) => void
   width?: number
   height?: number
 }
@@ -29,12 +30,17 @@ export function BoardStage({
   children,
   onCursorMove,
   onStageClick,
+  onStageTransformChange,
   width = window.innerWidth,
   height = window.innerHeight,
 }: BoardStageProps) {
   const stageRef = useRef<Konva.Stage>(null)
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [stageScale, setStageScale] = useState(INITIAL_SCALE)
+
+  useEffect(() => {
+    onStageTransformChange?.({ x: stagePos.x, y: stagePos.y, scale: stageScale })
+  }, [stagePos, stageScale, onStageTransformChange])
 
   /**
    * Handle mouse move to track cursor position
