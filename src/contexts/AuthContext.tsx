@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null
   isLoading: boolean
   signInWithGoogle: () => Promise<void>
+  signInAsGuest: () => Promise<void>
   signOut: () => Promise<void>
   displayName: string
   avatarUrl: string | null
@@ -34,6 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error
   }
 
+  const signInAsGuest = async () => {
+    const guestNumber = Math.floor(1000 + Math.random() * 9000)
+    const { error } = await supabase.auth.signInAnonymously({
+      options: { data: { display_name: `Guest #${guestNumber}` } },
+    })
+    if (error) throw error
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) console.error('Sign out error:', error)
@@ -41,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const displayName =
+    user?.user_metadata?.['display_name'] ??
     user?.user_metadata?.['full_name'] ??
     user?.user_metadata?.['name'] ??
     user?.email?.split('@')[0] ??
@@ -49,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const avatarUrl = user?.user_metadata?.['avatar_url'] ?? null
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signInWithGoogle, signOut, displayName, avatarUrl }}>
+    <AuthContext.Provider value={{ user, isLoading, signInWithGoogle, signInAsGuest, signOut, displayName, avatarUrl }}>
       {children}
     </AuthContext.Provider>
   )
