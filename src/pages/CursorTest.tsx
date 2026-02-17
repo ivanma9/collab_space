@@ -46,7 +46,7 @@ const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
 export function CursorTest() {
   const [currentUser] = useState(generateMockUser)
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
-  const [editingNote, setEditingNote] = useState<{ id: string; text: string; x: number; y: number; width: number; height: number; color: string } | null>(null)
+  const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
 
   const { cursors, broadcastCursor, isConnected } = useCursors({
@@ -180,21 +180,7 @@ export function CursorTest() {
 
   // Handle starting edit on a sticky note
   const handleStartEdit = (noteId: string) => {
-    const note = stickyNotes.find(n => n.id === noteId)
-    if (!note) return
-    const screenX = note.x * stageTransform.scale + stageTransform.x
-    const screenY = note.y * stageTransform.scale + stageTransform.y
-    const screenW = note.width * stageTransform.scale
-    const screenH = note.height * stageTransform.scale
-    setEditingNote({
-      id: noteId,
-      text: note.data.text,
-      x: screenX,
-      y: screenY,
-      width: screenW,
-      height: screenH,
-      color: note.data.color,
-    })
+    setEditingNote({ id: noteId })
   }
 
   // Handle saving edited text
@@ -363,18 +349,27 @@ export function CursorTest() {
       </BoardStage>
 
       {/* Text edit overlay */}
-      {editingNote && (
-        <TextEditOverlay
-          text={editingNote.text}
-          x={editingNote.x}
-          y={editingNote.y}
-          width={editingNote.width}
-          height={editingNote.height}
-          color={editingNote.color}
-          onSave={handleSaveEdit}
-          onClose={() => setEditingNote(null)}
-        />
-      )}
+      {editingNote && (() => {
+        const note = stickyNotes.find(n => n.id === editingNote.id)
+        if (!note) return null
+        const screenX = note.x * stageTransform.scale + stageTransform.x
+        const screenY = note.y * stageTransform.scale + stageTransform.y
+        const screenW = note.width * stageTransform.scale
+        const screenH = note.height * stageTransform.scale
+        return (
+          <TextEditOverlay
+            text={note.data.text}
+            x={screenX}
+            y={screenY}
+            width={screenW}
+            height={screenH}
+            color={note.data.color}
+            scale={stageTransform.scale}
+            onSave={handleSaveEdit}
+            onClose={() => setEditingNote(null)}
+          />
+        )
+      })()}
 
       {/* Latency Warning */}
       {!isConnected && (

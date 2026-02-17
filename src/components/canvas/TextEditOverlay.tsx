@@ -7,12 +7,14 @@ interface TextEditOverlayProps {
   width: number    // screen width (canvas width * scale)
   height: number   // screen height (canvas height * scale)
   color: string    // background color
+  scale: number    // stageTransform.scale
   onSave: (newText: string) => void
   onClose: () => void
 }
 
-export function TextEditOverlay({ text, x, y, width, height, color, onSave, onClose }: TextEditOverlayProps) {
+export function TextEditOverlay({ text, x, y, width, height, color, scale, onSave, onClose }: TextEditOverlayProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
     const ta = textareaRef.current
@@ -23,12 +25,17 @@ export function TextEditOverlay({ text, x, y, width, height, color, onSave, onCl
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Escape') {
-      onClose()
+      cancelledRef.current = true   // mark as cancelled
+      onClose()                      // unmount (will trigger onBlur)
     }
     e.stopPropagation()
   }
 
   const handleBlur = () => {
+    if (cancelledRef.current) {      // skip save on cancel
+      onClose()
+      return
+    }
     const ta = textareaRef.current
     if (ta) onSave(ta.value)
     onClose()
@@ -50,12 +57,12 @@ export function TextEditOverlay({ text, x, y, width, height, color, onSave, onCl
         border: '2px solid #4A90E2',
         borderRadius: '4px',
         padding: '2px',
-        fontSize: '14px',
+        fontSize: `${14 * scale}px`,
         fontFamily: 'Arial, sans-serif',
         resize: 'none',
         outline: 'none',
         zIndex: 1000,
-        overflow: 'hidden',
+        overflow: 'auto',
         lineHeight: '1.4',
       }}
     />
