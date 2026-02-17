@@ -16,7 +16,9 @@ import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
+import { PresenceBar } from '../components/presence/PresenceBar'
 import { useCursors } from '../hooks/useCursors'
+import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
 import type { BoardObject, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
@@ -49,6 +51,15 @@ function CursorTestInner({ userId, displayName, signOut }: { userId: string; dis
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
+
+  const { avatarUrl } = useAuth()
+
+  const { onlineUsers } = usePresence({
+    boardId: TEST_BOARD_ID,
+    userId,
+    userName: displayName,
+    avatarUrl,
+  })
 
   const { cursors, broadcastCursor, isConnected } = useCursors({
     boardId: TEST_BOARD_ID,
@@ -310,6 +321,9 @@ function CursorTestInner({ userId, displayName, signOut }: { userId: string; dis
           </button>
         </div>
       </div>
+
+      {/* Presence Bar */}
+      <PresenceBar onlineUsers={onlineUsers} currentUserId={userId} />
 
       {/* Canvas */}
       <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform}>
