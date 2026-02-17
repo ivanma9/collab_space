@@ -157,7 +157,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   }, [objects, selectMultiple])
 
   // Create a sticky note at current cursor position
-  const handleCreateStickyNote = async () => {
+  const handleCreateStickyNote = useCallback(async () => {
     const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFA07A', '#F7DC6F']
     const randomColor = colors[Math.floor(Math.random() * colors.length)]!
 
@@ -175,10 +175,10 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         color: randomColor,
       },
     })
-  }
+  }, [createObject, cursorPos, objects.length])
 
   // Create a rectangle at current cursor position
-  const handleCreateRectangle = async () => {
+  const handleCreateRectangle = useCallback(async () => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9']
     const randomFill = colors[Math.floor(Math.random() * colors.length)]!
 
@@ -197,10 +197,10 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 2,
       },
     })
-  }
+  }, [createObject, cursorPos, objects.length])
 
   // Create a circle at current cursor position
-  const handleCreateCircle = async () => {
+  const handleCreateCircle = useCallback(async () => {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9']
     const randomFill = colors[Math.floor(Math.random() * colors.length)]!
 
@@ -220,10 +220,10 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 2,
       },
     })
-  }
+  }, [createObject, cursorPos, objects.length])
 
   // Create a line at current cursor position
-  const handleCreateLine = async () => {
+  const handleCreateLine = useCallback(async () => {
     await createObject({
       board_id: TEST_BOARD_ID,
       type: 'line',
@@ -239,7 +239,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 4,
       },
     })
-  }
+  }, [createObject, cursorPos, objects.length])
 
   const handleCreateText = useCallback(async () => {
     await createObject({
@@ -252,20 +252,6 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       rotation: 0,
       z_index: objectsRef.current.length,
       data: { text: 'New text', fontSize: 18, color: '#000000' } satisfies TextData,
-    })
-  }, [createObject, cursorPos])
-
-  const handleCreateFrame = useCallback(async () => {
-    await createObject({
-      board_id: TEST_BOARD_ID,
-      type: 'frame',
-      x: cursorPos.x || 100,
-      y: cursorPos.y || 100,
-      width: 400,
-      height: 300,
-      rotation: 0,
-      z_index: 0,  // Frames render behind everything — always z_index 0
-      data: { title: 'New Frame', backgroundColor: 'rgba(240,240,240,0.5)' } satisfies FrameData,
     })
   }, [createObject, cursorPos])
 
@@ -294,6 +280,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     (obj): obj is BoardObject & { type: 'frame'; data: FrameData } =>
       obj.type === 'frame'
   )
+
+  const handleCreateFrame = useCallback(async () => {
+    await createObject({
+      board_id: TEST_BOARD_ID,
+      type: 'frame',
+      x: cursorPos.x || 100,
+      y: cursorPos.y || 100,
+      width: 400,
+      height: 300,
+      rotation: 0,
+      z_index: -(frames.length + 1),  // negative so frames stay behind all regular objects
+      data: { title: 'New Frame', backgroundColor: 'rgba(240,240,240,0.5)' } satisfies FrameData,
+    })
+  }, [createObject, cursorPos, frames.length])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return

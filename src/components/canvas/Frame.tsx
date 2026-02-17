@@ -3,6 +3,8 @@ import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, FrameData } from '../../lib/database.types'
 
+const TITLE_HEIGHT = 32
+
 interface FrameProps {
   object: BoardObject & { type: 'frame'; data: FrameData }
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
@@ -25,8 +27,6 @@ export function Frame({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
     if (groupRef.current) onMountRef.current?.(object.id, groupRef.current)
     return () => onUnmountRef.current?.(object.id)
   }, [object.id])
-
-  const TITLE_HEIGHT = 32
 
   return (
     <Group
