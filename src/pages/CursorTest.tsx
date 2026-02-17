@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
+import { Connector } from '../components/canvas/Connector'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
@@ -22,7 +23,7 @@ import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
-import type { BoardObject, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
+import type { BoardObject, ConnectorData, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
 import type Konva from 'konva'
@@ -58,6 +59,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingNote, setEditingNote] = useState<{ id: string } | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
+  const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
 
   const { onlineUsers } = usePresence({
     boardId: TEST_BOARD_ID,
@@ -249,6 +251,37 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       obj.type === 'rectangle' || obj.type === 'circle' || obj.type === 'line'
   )
 
+  const connectors = objects.filter(
+    (obj): obj is BoardObject & { type: 'connector'; data: ConnectorData } =>
+      obj.type === 'connector'
+  )
+
+  const handleCreateConnector = useCallback((toId: string) => {
+    if (!connectorMode) return
+    createObject({
+      board_id: TEST_BOARD_ID,
+      type: 'connector',
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      rotation: 0,
+      z_index: objects.length,
+      data: { fromId: connectorMode.fromId, toId, style: 'arrow' } as ConnectorData,
+    })
+    setConnectorMode(null)
+  }, [connectorMode, createObject, objects.length])
+
+  const handleObjectClick = useCallback((id: string, multiSelect = false) => {
+    if (connectorMode) {
+      if (id !== connectorMode.fromId) {
+        handleCreateConnector(id)
+      }
+      return
+    }
+    selectObject(id, multiSelect)
+  }, [connectorMode, handleCreateConnector, selectObject])
+
   // Handle starting edit on a sticky note
   const handleStartEdit = (noteId: string) => {
     setEditingNote({ id: noteId })
@@ -267,7 +300,10 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gray-100">
+    <div
+      className="relative w-screen h-screen overflow-hidden bg-gray-100"
+      style={{ cursor: connectorMode ? 'crosshair' : 'default' }}
+    >
       {/* Info Panel */}
       <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm">
         <h1 className="text-xl font-bold text-gray-800">
@@ -295,7 +331,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           </div>
 
           <div className="text-gray-600">
-            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length})
+            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length})
           </div>
 
           <div className="text-gray-600">
@@ -373,6 +409,26 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           </button>
 
           <button
+            onClick={() => {
+              if (connectorMode) {
+                setConnectorMode(null)
+              } else if (selectedIds.size === 1) {
+                const fromId = Array.from(selectedIds)[0]!
+                setConnectorMode({ fromId })
+                clearSelection()
+              }
+            }}
+            disabled={!connectorMode && selectedIds.size !== 1}
+            className={`w-full px-3 py-2 text-sm rounded text-white font-medium transition ${
+              connectorMode
+                ? 'bg-yellow-500 hover:bg-yellow-600'
+                : 'bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300'
+            }`}
+          >
+            {connectorMode ? 'Cancel Connect (click target)' : 'Connect (select 1 first)'}
+          </button>
+
+          <button
             onClick={signOut}
             className="w-full px-3 py-2 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700 transition"
           >
@@ -386,13 +442,24 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
       {/* Canvas */}
       <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
-        {/* Render shapes first (lower z-index) */}
+        {/* Render connectors first (behind everything) */}
+        {connectors.map(c => (
+          <Connector
+            key={c.id}
+            object={c}
+            allObjects={objects}
+            isSelected={isSelected(c.id)}
+            onSelect={handleObjectClick}
+          />
+        ))}
+
+        {/* Render shapes (lower z-index) */}
         {shapes.map((shape) => (
           <Shape
             key={shape.id}
             object={shape}
             onUpdate={updateObject}
-            onSelect={selectObject}
+            onSelect={handleObjectClick}
             isSelected={isSelected(shape.id)}
             onMount={handleNodeMount}
             onUnmount={handleNodeUnmount}
@@ -405,7 +472,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             key={note.id}
             object={note}
             onUpdate={updateObject}
-            onSelect={selectObject}
+            onSelect={handleObjectClick}
             isSelected={isSelected(note.id)}
             onStartEdit={handleStartEdit}
             onMount={handleNodeMount}
