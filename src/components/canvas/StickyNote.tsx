@@ -8,7 +8,7 @@
  * - Shadow for depth
  */
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, StickyNoteData } from '../../lib/database.types'
@@ -29,7 +29,7 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNot
    * Throttled to prevent too many updates
    */
   const lastDragUpdate = useRef<number>(0)
-  const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
+  const handleDragMove = (_e: Konva.KonvaEventObject<DragEvent>) => {
     const now = Date.now()
     const throttleMs = 50 // ~20 updates/second
 
@@ -56,7 +56,7 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected }: StickyNot
   /**
    * Handle drag end - final position update with DB persistence
    */
-  const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
+  const handleDragEnd = (_e: Konva.KonvaEventObject<DragEvent>) => {
     const group = groupRef.current
     if (!group) return
 

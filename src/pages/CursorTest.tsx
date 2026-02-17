@@ -10,12 +10,13 @@
  * 4. Target: Cursor sync should feel instant (<50ms latency)
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { StickyNote } from '../components/canvas/StickyNote'
 import { useCursors } from '../hooks/useCursors'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
+import { useSelection } from '../hooks/useSelection'
 import type { BoardObject, StickyNoteData } from '../lib/database.types'
 
 // Generate a mock user ID for testing (in production, this comes from Supabase Auth)
@@ -29,7 +30,7 @@ const generateMockUser = () => {
 
   const id = `user_${Math.random().toString(36).substring(7)}`
   const names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank']
-  const name = names[Math.floor(Math.random() * names.length)]
+  const name = names[Math.floor(Math.random() * names.length)]!
 
   localStorage.setItem('test_user_id', id)
   localStorage.setItem('test_user_name', name)
@@ -55,7 +56,7 @@ export function CursorTest() {
     userId: currentUser.id,
   })
 
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
+  const { isSelected, selectObject, clearSelection } = useSelection()
 
   // Broadcast cursor position whenever it changes
   const handleCursorMove = (x: number, y: number) => {
@@ -66,7 +67,7 @@ export function CursorTest() {
   // Create a sticky note at current cursor position
   const handleCreateStickyNote = async () => {
     const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFA07A', '#F7DC6F']
-    const randomColor = colors[Math.floor(Math.random() * colors.length)]
+    const randomColor = colors[Math.floor(Math.random() * colors.length)]!
 
     await createObject({
       board_id: TEST_BOARD_ID,
@@ -171,15 +172,15 @@ export function CursorTest() {
       </div>
 
       {/* Canvas */}
-      <BoardStage onCursorMove={handleCursorMove}>
+      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection}>
         {/* Render all sticky notes */}
         {stickyNotes.map((note) => (
           <StickyNote
             key={note.id}
             object={note}
             onUpdate={updateObject}
-            onSelect={setSelectedObjectId}
-            isSelected={selectedObjectId === note.id}
+            onSelect={selectObject}
+            isSelected={isSelected(note.id)}
           />
         ))}
 

@@ -13,7 +13,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       boards: {
@@ -38,6 +38,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       board_members: {
         Row: {
@@ -61,6 +62,7 @@ export interface Database {
           role?: 'owner' | 'editor' | 'viewer'
           joined_at?: string
         }
+        Relationships: []
       }
       board_objects: {
         Row: {
@@ -108,6 +110,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: {
@@ -117,6 +120,9 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }
