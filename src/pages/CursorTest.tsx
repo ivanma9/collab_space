@@ -103,6 +103,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const handleDuplicate = useCallback(() => {
     if (selectedIds.size === 0) return
     const OFFSET = 20
+    let zOffset = 0
     selectedIds.forEach(id => {
       const obj = objects.find(o => o.id === id)
       if (!obj) return
@@ -111,7 +112,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         ...rest,
         x: obj.x + OFFSET,
         y: obj.y + OFFSET,
-        z_index: objects.length,
+        z_index: objects.length + zOffset++,
       })
     })
   }, [selectedIds, objects, createObject])
@@ -126,6 +127,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         clearSelection()
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         e.preventDefault()
         handleDuplicate()
       }
