@@ -115,10 +115,10 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   }, [selectedIds, deleteObject, clearSelection])
 
   // Broadcast cursor position whenever it changes
-  const handleCursorMove = (x: number, y: number) => {
+  const handleCursorMove = useCallback((x: number, y: number) => {
     setCursorPos({ x, y })
     broadcastCursor(x, y)
-  }
+  }, [broadcastCursor])
 
   // Handle marquee (drag-to-select) selection
   const handleMarqueeSelect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
@@ -128,9 +128,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       obj.y < rect.y + rect.height &&
       obj.y + obj.height > rect.y
     )
-    if (selected.length > 0) {
-      selectMultiple(selected.map(o => o.id))
-    }
+    selectMultiple(selected.map(o => o.id))  // always call — empty array clears selection
   }, [objects, selectMultiple])
 
   // Create a sticky note at current cursor position

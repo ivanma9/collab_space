@@ -85,12 +85,19 @@ export function BoardStage({
 
       // Marquee drawing
       if (marqueeStart.current) {
-        isDraggingMarquee.current = true
-        const x = Math.min(marqueeStart.current.x, canvasPos.x)
-        const y = Math.min(marqueeStart.current.y, canvasPos.y)
-        const width = Math.abs(canvasPos.x - marqueeStart.current.x)
-        const height = Math.abs(canvasPos.y - marqueeStart.current.y)
-        setMarquee({ x, y, width, height })
+        const dx = canvasPos.x - marqueeStart.current.x
+        const dy = canvasPos.y - marqueeStart.current.y
+        const distSq = dx * dx + dy * dy
+        if (distSq > 16) {  // 4px threshold (4^2 = 16) in canvas coords
+          isDraggingMarquee.current = true
+        }
+        if (isDraggingMarquee.current) {
+          const x = Math.min(marqueeStart.current.x, canvasPos.x)
+          const y = Math.min(marqueeStart.current.y, canvasPos.y)
+          const width = Math.abs(dx)
+          const height = Math.abs(dy)
+          setMarquee({ x, y, width, height })
+        }
       }
     },
     [onCursorMove]
