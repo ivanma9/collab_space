@@ -8,7 +8,7 @@
  * - Shadow for depth
  */
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, StickyNoteData } from '../../lib/database.types'
@@ -19,10 +19,17 @@ interface StickyNoteProps {
   onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
   onStartEdit?: (id: string) => void
+  onMount?: (id: string, node: Konva.Group) => void
+  onUnmount?: (id: string) => void
 }
 
-export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit }: StickyNoteProps) {
+export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
   const groupRef = useRef<Konva.Group>(null)
+
+  useEffect(() => {
+    if (groupRef.current) onMount?.(object.id, groupRef.current)
+    return () => onUnmount?.(object.id)
+  }, [object.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Handle drag move - broadcast position updates during drag for smooth sync
@@ -92,6 +99,7 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit
   return (
     <Group
       ref={groupRef}
+      id={object.id}
       x={object.x}
       y={object.y}
       draggable

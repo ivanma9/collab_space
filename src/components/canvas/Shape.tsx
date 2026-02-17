@@ -7,7 +7,7 @@
  * - Colored fill and stroke
  */
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Group, Rect, Circle, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, RectangleData, CircleData, LineData } from '../../lib/database.types'
@@ -20,10 +20,17 @@ interface ShapeProps {
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
   onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
+  onMount?: (id: string, node: Konva.Group) => void
+  onUnmount?: (id: string) => void
 }
 
-export function Shape({ object, onUpdate, onSelect, isSelected }: ShapeProps) {
+export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: ShapeProps) {
   const groupRef = useRef<Konva.Group>(null)
+
+  useEffect(() => {
+    if (groupRef.current) onMount?.(object.id, groupRef.current)
+    return () => onUnmount?.(object.id)
+  }, [object.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastDragUpdate = useRef<number>(0)
   const handleDragMove = (_e: Konva.KonvaEventObject<DragEvent>) => {
@@ -102,6 +109,7 @@ export function Shape({ object, onUpdate, onSelect, isSelected }: ShapeProps) {
   return (
     <Group
       ref={groupRef}
+      id={object.id}
       x={object.x}
       y={object.y}
       draggable

@@ -10,11 +10,12 @@
  * 4. Target: Cursor sync should feel instant (<50ms latency)
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
+import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { PresenceBar } from '../components/presence/PresenceBar'
 import { useCursors } from '../hooks/useCursors'
@@ -24,6 +25,7 @@ import { useSelection } from '../hooks/useSelection'
 import type { BoardObject, StickyNoteData, RectangleData, CircleData, LineData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
+import type Konva from 'konva'
 
 // Fixed test board ID for all users (must be a valid UUID)
 const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
@@ -76,6 +78,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   })
 
   const { isSelected, selectObject, clearSelection, selectedIds } = useSelection()
+
+  const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
+
+  const handleNodeMount = useCallback((id: string, node: Konva.Group) => {
+    nodeRefs.current.set(id, node)
+  }, [])
+
+  const handleNodeUnmount = useCallback((id: string) => {
+    nodeRefs.current.delete(id)
+  }, [])
+
+  const selectedNodes = Array.from(selectedIds)
+    .map(id => nodeRefs.current.get(id))
+    .filter((n): n is Konva.Group => n != null)
 
   // Delete selected objects on Delete/Backspace key
   useEffect(() => {
@@ -338,6 +354,8 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onUpdate={updateObject}
             onSelect={selectObject}
             isSelected={isSelected(shape.id)}
+            onMount={handleNodeMount}
+            onUnmount={handleNodeUnmount}
           />
         ))}
 
@@ -350,8 +368,15 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onSelect={selectObject}
             isSelected={isSelected(note.id)}
             onStartEdit={handleStartEdit}
+            onMount={handleNodeMount}
+            onUnmount={handleNodeUnmount}
           />
         ))}
+
+        <SelectionTransformer
+          selectedNodes={selectedNodes}
+          onTransformEnd={(id, updates) => updateObject(id, updates)}
+        />
 
         {/* Render all remote cursors */}
         {Array.from(cursors.values()).map((cursor) => (
