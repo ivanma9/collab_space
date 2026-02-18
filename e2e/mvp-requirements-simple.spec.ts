@@ -22,8 +22,8 @@ test.describe('MVP Requirements (Hard Gate) - Simplified', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    // Small delay between tests to avoid rate limiting
-    await page.waitForTimeout(500);
+    // Delay between tests to avoid rate limiting
+    await page.waitForTimeout(1000);
   });
 
   test('1. Infinite board with pan/zoom', async ({ page }) => {

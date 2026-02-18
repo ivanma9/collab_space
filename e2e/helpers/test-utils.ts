@@ -23,14 +23,21 @@ export async function loginUser(page: Page, _options?: { guestName?: string }) {
 
   if (loginVisible) {
     // Check for rate limit error
-    const rateLimitVisible = await page.locator('text=/Request rate limit reached/i').isVisible().catch(() => false);
+    let rateLimitVisible = await page.locator('text=/Request rate limit reached/i').isVisible().catch(() => false);
 
     if (rateLimitVisible) {
-      console.log('Rate limit detected, waiting 3 seconds before attempting login...');
-      await page.waitForTimeout(3000);
-      // Reload page to get fresh attempt
-      await page.goto('/');
-      await page.locator('[data-testid="login-page"]').waitFor({ state: 'visible', timeout: 10000 });
+      console.log('Rate limit detected, waiting 60 seconds for reset...');
+      // Supabase rate limits can last 60+ seconds
+      await page.waitForTimeout(60000);
+
+      // Reload and check again
+      await page.reload();
+      await page.waitForTimeout(2000);
+
+      rateLimitVisible = await page.locator('text=/Request rate limit reached/i').isVisible().catch(() => false);
+      if (rateLimitVisible) {
+        throw new Error('Rate limit still active after 60s wait. Please wait before running tests again.');
+      }
     }
 
     // Click guest login button
