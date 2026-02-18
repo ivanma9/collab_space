@@ -40,3 +40,4 @@ storybook-static
 
 # git worktrees
 .worktrees
+playwright/.auth/

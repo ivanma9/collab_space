@@ -15,15 +15,17 @@ import {
 } from './helpers/test-utils';
 import { test as multiUserTest } from './fixtures/multi-user';
 
-test.describe.skip('MVP Requirements (Hard Gate) - Simplified', () => {
+test.describe('MVP Requirements (Hard Gate) - Simplified', () => {
   test.beforeEach(async ({ page }) => {
-    await loginUser(page);
+    // Auth state is already loaded from global setup
+    // Just navigate to the app
+    await page.goto('/');
     await waitForBoardReady(page);
   });
 
   test.afterEach(async ({ page }) => {
-    // Delay between tests to avoid rate limiting
-    await page.waitForTimeout(1000);
+    // Small delay between tests for stability
+    await page.waitForTimeout(500);
   });
 
   test('1. Infinite board with pan/zoom', async ({ page }) => {
@@ -208,7 +210,7 @@ test.describe.skip('MVP Requirements (Hard Gate) - Simplified', () => {
   });
 });
 
-multiUserTest.describe.skip('MVP - Multi-User Integration', () => {
+multiUserTest.describe('MVP - Multi-User Integration', () => {
   multiUserTest('All MVP features work with 2+ users', async ({ user1Page, user2Page }) => {
     // Get initial counts from both users
     const initialCounts1 = await getObjectCounts(user1Page);

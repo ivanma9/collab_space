@@ -12,6 +12,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
 	testDir: "./e2e",
 	testIgnore: "**/e2e/_disabled/**",
+	/* Global setup to authenticate once before all tests */
+	globalSetup: './e2e/global-setup.ts',
 	/* Run tests in files in parallel */
 	fullyParallel: false, // Disabled to avoid rate limiting
 	/* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -31,6 +33,9 @@ export default defineConfig({
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		trace: "on-first-retry",
+
+		/* Use authenticated state from global setup */
+		storageState: './playwright/.auth/user.json',
 	},
 
 	/* Configure projects for major browsers */

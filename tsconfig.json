@@ -25,7 +25,7 @@
 		"noPropertyAccessFromIndexSignature": true,
 		"noUncheckedIndexedAccess": true
 	},
-	"include": ["src", "e2e"],
-	"exclude": ["node_modules", "e2e/_disabled"],
+	"include": ["src"],
+	"exclude": ["node_modules", "e2e"],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }
