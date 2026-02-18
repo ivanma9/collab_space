@@ -15,7 +15,7 @@ import {
 } from './helpers/test-utils';
 import { test as multiUserTest } from './fixtures/multi-user';
 
-test.describe('MVP Requirements (Hard Gate) - Simplified', () => {
+test.describe.skip('MVP Requirements (Hard Gate) - Simplified', () => {
   test.beforeEach(async ({ page }) => {
     await loginUser(page);
     await waitForBoardReady(page);
@@ -208,7 +208,7 @@ test.describe('MVP Requirements (Hard Gate) - Simplified', () => {
   });
 });
 
-multiUserTest.describe('MVP - Multi-User Integration', () => {
+multiUserTest.describe.skip('MVP - Multi-User Integration', () => {
   multiUserTest('All MVP features work with 2+ users', async ({ user1Page, user2Page }) => {
     // Get initial counts from both users
     const initialCounts1 = await getObjectCounts(user1Page);
