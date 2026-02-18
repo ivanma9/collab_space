@@ -7,6 +7,7 @@
  * - Wheel zoom support
  * - Cursor position tracking
  * - Drag-to-select (marquee selection)
+ * - Middle-click drag to pan
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react'
@@ -46,14 +47,37 @@ export function BoardStage({
   const isDraggingMarquee = useRef(false)
   const justFinishedMarquee = useRef(false)
 
+  const isPanning = useRef(false)
+  const [cursor, setCursor] = useState('default')
+
   useEffect(() => {
     onStageTransformChange?.({ x: stagePos.x, y: stagePos.y, scale: stageScale })
   }, [stagePos, stageScale, onStageTransformChange])
 
+  // Stop panning when mouse is released outside the stage
+  useEffect(() => {
+    const handleWindowMouseUp = () => {
+      if (isPanning.current) {
+        isPanning.current = false
+        setCursor('default')
+      }
+    }
+    window.addEventListener('mouseup', handleWindowMouseUp)
+    return () => window.removeEventListener('mouseup', handleWindowMouseUp)
+  }, [])
+
   /**
-   * Handle mouse down to start marquee selection
+   * Handle mouse down to start marquee selection or middle-click pan
    */
   const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Middle or right click: start panning regardless of what was clicked
+    if (e.evt.button === 1 || e.evt.button === 2) {
+      e.evt.preventDefault()
+      isPanning.current = true
+      setCursor('grabbing')
+      return
+    }
+
     // Only on left click directly on stage background (not on objects)
     if (e.target !== e.currentTarget) return
     if (e.evt.button !== 0) return
@@ -68,10 +92,19 @@ export function BoardStage({
   }, [])
 
   /**
-   * Handle mouse move to track cursor position and draw marquee
+   * Handle mouse move to track cursor position, draw marquee, or pan
    */
   const handleMouseMove = useCallback(
-    (_e: Konva.KonvaEventObject<MouseEvent>) => {
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      // Middle-click pan: translate the stage by mouse delta
+      if (isPanning.current) {
+        setStagePos(prev => ({
+          x: prev.x + e.evt.movementX,
+          y: prev.y + e.evt.movementY,
+        }))
+        return
+      }
+
       const stage = stageRef.current
       if (!stage) return
 
@@ -104,9 +137,14 @@ export function BoardStage({
   )
 
   /**
-   * Handle mouse up to finish marquee selection
+   * Handle mouse up to finish marquee selection or stop panning
    */
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (e.evt.button === 1 || e.evt.button === 2) {
+      isPanning.current = false
+      setCursor('default')
+      return
+    }
     if (marquee && isDraggingMarquee.current && onMarqueeSelect) {
       onMarqueeSelect(marquee)
       justFinishedMarquee.current = true  // stays true through the subsequent click event
@@ -188,7 +226,10 @@ export function BoardStage({
       onMouseUp={handleMouseUp}
       onWheel={handleWheel}
       onClick={handleStageClick}
-      style={{ cursor: 'default' }}
+      onContextMenu={(e) => e.evt.preventDefault()}
+      style={{ cursor }}
+      data-testid="board-stage"
+      data-transform={JSON.stringify({ x: stagePos.x, y: stagePos.y, scale: stageScale })}
     >
       <Layer>
         {children}
