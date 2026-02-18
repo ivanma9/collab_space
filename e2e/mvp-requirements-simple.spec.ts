@@ -11,9 +11,7 @@ import {
   createStickyNote,
   createShape,
   getObjectCounts,
-  clickCanvas,
   dragObject,
-  getOnlineUsers,
 } from './helpers/test-utils';
 import { test as multiUserTest } from './fixtures/multi-user';
 
@@ -169,7 +167,7 @@ test.describe('MVP Requirements (Hard Gate) - Simplified', () => {
     await context3.close();
   });
 
-  test('8. User authentication', async ({ page, context }) => {
+  test('8. User authentication', async ({ page }) => {
     // Verify we're logged in (board is visible)
     await expect(page.locator('[data-testid="board-stage"]')).toBeVisible();
 

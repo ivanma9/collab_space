@@ -9,7 +9,7 @@ import { Page, expect } from '@playwright/test';
 /**
  * Login helper - authenticates a user as guest
  */
-export async function loginUser(page: Page, options?: { guestName?: string }) {
+export async function loginUser(page: Page, _options?: { guestName?: string }) {
   await page.goto('/');
 
   // Wait for either login page or board to load
@@ -65,11 +65,11 @@ export async function waitForBoardReady(page: Page) {
 /**
  * Create a sticky note - simplified for canvas rendering
  */
-export async function createStickyNote(page: Page, x?: number, y?: number, text?: string) {
+export async function createStickyNote(page: Page, _x?: number, _y?: number, text?: string) {
   // Get initial count
   const beforeText = await page.locator('text=/Objects:.*Notes:.*/'). textContent();
   const beforeMatch = beforeText?.match(/Notes:\s*(\d+)/);
-  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]) : 0;
+  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]!) : 0;
 
   // Click the sticky note tool button
   await page.locator('[data-testid="sticky-note-tool"]').click();
@@ -78,7 +78,7 @@ export async function createStickyNote(page: Page, x?: number, y?: number, text?
   await page.waitForFunction((expectedCount) => {
     const text = document.body.textContent || '';
     const match = text.match(/Notes:\s*(\d+)/);
-    return match && parseInt(match[1]) > expectedCount;
+    return match && parseInt(match[1]!) > expectedCount;
   }, beforeCount, { timeout: 5000 });
 
   await page.waitForTimeout(300);
@@ -102,11 +102,11 @@ export async function createStickyNote(page: Page, x?: number, y?: number, text?
 /**
  * Create a shape - simplified for canvas rendering
  */
-export async function createShape(page: Page, type: 'rectangle' | 'circle' | 'line', x?: number, y?: number) {
+export async function createShape(page: Page, type: 'rectangle' | 'circle' | 'line', _x?: number, _y?: number) {
   // Get initial count
   const beforeText = await page.locator('text=/Objects:.*Shapes:.*/'). textContent();
   const beforeMatch = beforeText?.match(/Shapes:\s*(\d+)/);
-  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]) : 0;
+  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]!) : 0;
 
   // Click the shape tool button
   await page.locator(`[data-testid="${type}-tool"]`).click();
@@ -115,7 +115,7 @@ export async function createShape(page: Page, type: 'rectangle' | 'circle' | 'li
   await page.waitForFunction((expectedCount) => {
     const text = document.body.textContent || '';
     const match = text.match(/Shapes:\s*(\d+)/);
-    return match && parseInt(match[1]) > expectedCount;
+    return match && parseInt(match[1]!) > expectedCount;
   }, beforeCount, { timeout: 5000 });
 
   await page.waitForTimeout(300);
@@ -160,7 +160,7 @@ export async function createConnector(page: Page, fromX: number, fromY: number, 
 export async function getSelectedCount(page: Page): Promise<number> {
   const text = await page.locator('text=/Selected:.*/'). textContent();
   const match = text?.match(/Selected:\s*(\d+)/);
-  return match ? parseInt(match[1]) : 0;
+  return match ? parseInt(match[1]!) : 0;
 }
 
 /**
@@ -351,7 +351,7 @@ export async function measureSyncLatency(page1: Page, page2: Page): Promise<numb
 export async function countBoardObjects(page: Page): Promise<number> {
   const text = await page.locator('text=/Objects:.*/'). textContent();
   const match = text?.match(/Objects:\s*(\d+)/);
-  return match ? parseInt(match[1]) : 0;
+  return match ? parseInt(match[1]!) : 0;
 }
 
 /**
@@ -367,11 +367,11 @@ export async function getObjectCounts(page: Page): Promise<{ notes: number; shap
   const framesMatch = text?.match(/Frames:\s*(\d+)/);
 
   return {
-    notes: notesMatch ? parseInt(notesMatch[1]) : 0,
-    shapes: shapesMatch ? parseInt(shapesMatch[1]) : 0,
-    connectors: connectorsMatch ? parseInt(connectorsMatch[1]) : 0,
-    text: textMatch ? parseInt(textMatch[1]) : 0,
-    frames: framesMatch ? parseInt(framesMatch[1]) : 0,
+    notes: notesMatch ? parseInt(notesMatch[1]!) : 0,
+    shapes: shapesMatch ? parseInt(shapesMatch[1]!) : 0,
+    connectors: connectorsMatch ? parseInt(connectorsMatch[1]!) : 0,
+    text: textMatch ? parseInt(textMatch[1]!) : 0,
+    frames: framesMatch ? parseInt(framesMatch[1]!) : 0,
   };
 }
 
