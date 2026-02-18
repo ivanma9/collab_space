@@ -4,7 +4,7 @@
  * Shows a colored cursor with the user's name label
  */
 
-import { Group, Circle, Text } from 'react-konva'
+import { Group, Circle, Label, Tag, Text } from 'react-konva'
 import type { CursorPosition } from '../../lib/database.types'
 
 interface RemoteCursorProps {
@@ -13,7 +13,7 @@ interface RemoteCursorProps {
 
 export function RemoteCursor({ cursor }: RemoteCursorProps) {
   return (
-    <Group x={cursor.x} y={cursor.y}>
+    <Group x={cursor.x} y={cursor.y} data-testid={`remote-cursor-${cursor.userName}`}>
       {/* Cursor circle */}
       <Circle
         radius={8}
@@ -25,31 +25,24 @@ export function RemoteCursor({ cursor }: RemoteCursorProps) {
         shadowOpacity={0.3}
       />
 
-      {/* User name label */}
-      <Group x={12} y={12}>
-        {/* Label background */}
-        <Text
-          text={cursor.userName}
-          fontSize={12}
-          fontFamily="sans-serif"
-          fill="#ffffff"
-          padding={4}
+      {/* User name label — colored pill with white text for maximum contrast */}
+      <Label x={12} y={12}>
+        <Tag
+          fill={cursor.color}
           cornerRadius={4}
           shadowColor="black"
-          shadowBlur={2}
-          shadowOpacity={0.5}
+          shadowBlur={4}
+          shadowOpacity={0.35}
         />
-        {/* Label with color */}
         <Text
           text={cursor.userName}
           fontSize={12}
           fontFamily="sans-serif"
-          fill={cursor.color}
+          fontStyle="bold"
+          fill="#ffffff"
           padding={4}
-          stroke="#ffffff"
-          strokeWidth={0.5}
         />
-      </Group>
+      </Label>
     </Group>
   )
 }

@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { CursorPosition } from '../lib/database.types'
+import { getUserColor } from '../lib/userColors'
 
 interface UseCursorsOptions {
   boardId: string
@@ -25,23 +26,6 @@ interface UseCursorsReturn {
   isConnected: boolean
 }
 
-// Generate a random cursor color based on userId
-const getUserColor = (userId: string): string => {
-  const colors = [
-    '#FF6B6B',
-    '#4ECDC4',
-    '#45B7D1',
-    '#FFA07A',
-    '#98D8C8',
-    '#F7DC6F',
-    '#BB8FCE',
-    '#85C1E2',
-  ]
-  const hash = userId.split('').reduce((acc, char) => {
-    return char.charCodeAt(0) + ((acc << 5) - acc)
-  }, 0)
-  return colors[Math.abs(hash) % colors.length]!
-}
 
 /**
  * Hook for managing multiplayer cursors with Supabase Broadcast
