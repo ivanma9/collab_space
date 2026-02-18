@@ -45,6 +45,7 @@ export function Frame({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
         if (groupRef.current) onUpdate(object.id, { x: groupRef.current.x(), y: groupRef.current.y() })
       }}
       onClick={(e) => onSelect?.(object.id, e.evt.metaKey || e.evt.ctrlKey)}
+      data-testid={`frame-${object.id}`}
     >
       {/* Frame background */}
       <Rect

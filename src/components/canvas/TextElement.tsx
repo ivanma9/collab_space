@@ -46,6 +46,7 @@ export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing,
       }}
       onClick={(e) => onSelect?.(object.id, e.evt.metaKey || e.evt.ctrlKey)}
       onDblClick={() => { onSelect?.(object.id); onStartEdit?.(object.id) }}
+      data-testid={`text-element-${object.id}`}
     >
       <Text
         text={isEditing ? '' : (object.data.text || 'Double-click to edit')}

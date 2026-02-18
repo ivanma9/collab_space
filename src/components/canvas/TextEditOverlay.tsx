@@ -50,32 +50,36 @@ export function TextEditOverlay({ text, x, y, width, height, color, scale, fontS
   }
 
   return (
-    <textarea
-      ref={textareaRef}
-      defaultValue={text}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-      onInput={(e) => autoResize(e.currentTarget)}
-      style={{
-        position: 'absolute',
-        top: y + padding,
-        left: x + padding,
-        width: width - padding * 2,
-        minHeight: height - padding * 2,
-        height: 'auto',
-        background: color,
-        border: '2px solid #4A90E2',
-        borderRadius: '4px',
-        padding: '2px',
-        fontSize: `${fontSize * scale}px`,
-        fontFamily: 'Arial, sans-serif',
-        resize: 'none',
-        outline: 'none',
-        zIndex: 1000,
-        overflow: 'hidden',
-        lineHeight: '1.4',
-        boxSizing: 'border-box',
-      }}
-    />
+    <div data-testid="text-edit-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 999 }}>
+      <textarea
+        ref={textareaRef}
+        defaultValue={text}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onInput={(e) => autoResize(e.currentTarget)}
+        data-testid="text-edit-input"
+        style={{
+          position: 'absolute',
+          top: y + padding,
+          left: x + padding,
+          width: width - padding * 2,
+          minHeight: height - padding * 2,
+          height: 'auto',
+          background: color,
+          border: '2px solid #4A90E2',
+          borderRadius: '4px',
+          padding: '2px',
+          fontSize: `${fontSize * scale}px`,
+          fontFamily: 'Arial, sans-serif',
+          resize: 'none',
+          outline: 'none',
+          zIndex: 1000,
+          overflow: 'hidden',
+          lineHeight: '1.4',
+          boxSizing: 'border-box',
+          pointerEvents: 'auto',
+        }}
+      />
+    </div>
   )
 }

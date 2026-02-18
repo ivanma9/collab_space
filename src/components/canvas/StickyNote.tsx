@@ -110,6 +110,7 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       onDblClick={handleDoubleClick}
+      data-testid={`sticky-note-${object.id}`}
     >
       {/* Sticky note background */}
       <Rect

@@ -35,6 +35,7 @@ export function Connector({ object, allObjects, isSelected, onSelect }: Connecto
         strokeWidth={strokeWidth}
         onClick={handleClick}
         hitStrokeWidth={10}
+        data-testid={`connector-${object.id}`}
       />
     )
   }
@@ -50,6 +51,7 @@ export function Connector({ object, allObjects, isSelected, onSelect }: Connecto
       dash={object.data.style === 'dashed' ? [8, 4] : undefined}
       onClick={handleClick}
       hitStrokeWidth={10}
+      data-testid={`connector-${object.id}`}
     />
   )
 }

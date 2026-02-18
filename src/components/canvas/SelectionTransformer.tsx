@@ -44,6 +44,7 @@ export function SelectionTransformer({ selectedNodes, transformVersion, onTransf
         if (newBox.width < 20 || newBox.height < 20) return oldBox
         return newBox
       }}
+      data-testid="selection-transformer"
     />
   )
 }

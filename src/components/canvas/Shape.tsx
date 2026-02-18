@@ -126,6 +126,8 @@ export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
       onClick={handleClick}
+      data-testid={`shape-${object.id}`}
+      data-shape-type={object.type}
     >
       {renderShape()}
     </Group>

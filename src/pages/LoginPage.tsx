@@ -31,7 +31,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center" data-testid="login-page">
       <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-sm flex flex-col items-center gap-6">
         <h1 className="text-3xl font-bold text-gray-900">CollabBoard</h1>
         <p className="text-gray-500 text-center">Real-time collaborative whiteboard</p>
@@ -39,6 +39,7 @@ export function LoginPage() {
           onClick={handleSignIn}
           disabled={isPending || isGuestPending}
           className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition font-medium text-gray-700"
+          data-testid="google-login-button"
         >
           <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
           {isPending ? 'Signing in...' : 'Sign in with Google'}
@@ -52,6 +53,7 @@ export function LoginPage() {
           onClick={handleGuestSignIn}
           disabled={isGuestPending || isPending}
           className="w-full px-4 py-3 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-60 transition font-medium text-sm"
+          data-testid="guest-login-button"
         >
           {isGuestPending ? 'Starting session...' : 'Continue as Guest'}
         </button>

@@ -432,7 +432,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         </h1>
 
         <div className="space-y-1 text-sm">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2" data-testid="connection-status" data-status={isConnected ? 'connected' : 'disconnected'}>
             <div
               className={`w-3 h-3 rounded-full ${
                 isConnected ? 'bg-green-500' : 'bg-red-500'
@@ -490,6 +490,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateStickyNote}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="sticky-note-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Sticky Note'}
           </button>
@@ -498,6 +499,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateRectangle}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="rectangle-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Rectangle'}
           </button>
@@ -506,6 +508,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateCircle}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-green-500 hover:bg-green-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="circle-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Circle'}
           </button>
@@ -514,6 +517,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateLine}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="line-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Line'}
           </button>
@@ -522,6 +526,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateText}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="text-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Text'}
           </button>
@@ -530,6 +535,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
             onClick={handleCreateFrame}
             disabled={isLoading}
             className="w-full px-3 py-2 text-sm bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 rounded text-white font-medium transition"
+            data-testid="frame-tool"
           >
             {isLoading ? 'Creating...' : '+ Add Frame'}
           </button>
@@ -568,6 +574,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
           <button
             onClick={signOut}
             className="w-full px-3 py-2 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700 transition"
+            data-testid="sign-out-button"
           >
             Sign out ({displayName})
           </button>
@@ -578,7 +585,12 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       <PresenceBar onlineUsers={onlineUsers} currentUserId={userId} />
 
       {/* Canvas */}
-      <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
+      <div
+        data-testid="board-stage"
+        data-transform={JSON.stringify(stageTransform)}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      >
+        <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
         {/* Render frames first (behind everything) */}
         {frames.map((frame) => (
           <Frame
@@ -659,6 +671,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
         {/* Grid background (optional visual aid) */}
         {/* You can add a grid here later for better spatial reference */}
       </BoardStage>
+      </div>
 
       {/* Text edit overlay */}
       {editingId && (() => {
