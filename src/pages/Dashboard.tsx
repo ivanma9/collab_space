@@ -14,7 +14,6 @@ type Board = {
 
 export function Dashboard() {
   const { user, displayName, signOut, isLoading } = useAuth()
-  const navigate = useNavigate()
 
   if (isLoading) {
     return (
@@ -26,15 +25,15 @@ export function Dashboard() {
 
   if (!user) return <LoginPage />
 
-  return <DashboardInner userId={user.id} displayName={displayName} signOut={signOut} navigate={navigate} />
+  return <DashboardInner userId={user.id} displayName={displayName} signOut={signOut} />
 }
 
-function DashboardInner({ userId, displayName, signOut, navigate }: {
+function DashboardInner({ userId, displayName, signOut }: {
   userId: string
   displayName: string
   signOut: () => Promise<void>
-  navigate: ReturnType<typeof useNavigate>
 }) {
+  const navigate = useNavigate()
   const [boards, setBoards] = useState<Board[]>([])
   const [newBoardName, setNewBoardName] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -42,21 +41,18 @@ function DashboardInner({ userId, displayName, signOut, navigate }: {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadBoards()
-  }, [userId])
-
-  async function loadBoards() {
-    const { data, error } = await supabase
+    supabase
       .from('board_members')
       .select('boards(id, name, invite_code, created_by, created_at)')
       .eq('user_id', userId)
-
-    if (error) { setError(error.message); return }
-    const boardList = (data ?? [])
-      .map((row: any) => row.boards)
-      .filter(Boolean) as Board[]
-    setBoards(boardList)
-  }
+      .then(({ data, error }) => {
+        if (error) { setError(error.message); return }
+        const boardList = (data ?? [])
+          .map((row: any) => row.boards)
+          .filter(Boolean) as Board[]
+        setBoards(boardList)
+      })
+  }, [userId])
 
   async function handleCreateBoard() {
     if (!newBoardName.trim()) return

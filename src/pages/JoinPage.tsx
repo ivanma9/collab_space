@@ -27,37 +27,44 @@ function JoinPageInner({ userId }: { userId: string }) {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
+    let cancelled = false
+
+    async function join() {
+      // Look up board by invite code
+      const { data: board, error: boardError } = await supabase
+        .from('boards')
+        .select('id')
+        .eq('invite_code', code.toUpperCase())
+        .single()
+
+      if (cancelled) return
+
+      if (boardError || !board) {
+        setStatus('error')
+        setErrorMsg('Invalid invite code. Please check and try again.')
+        return
+      }
+
+      // Add user as editor (ignore conflict if already a member)
+      const { error: memberError } = await supabase
+        .from('board_members')
+        .insert({ board_id: board.id, user_id: userId, role: 'editor' })
+
+      if (cancelled) return
+
+      // UNIQUE constraint violation (code 23505) means already a member — that's fine
+      if (memberError && memberError.code !== '23505') {
+        setStatus('error')
+        setErrorMsg(memberError.message)
+        return
+      }
+
+      navigate({ to: '/board/$boardId', params: { boardId: board.id } })
+    }
+
     join()
+    return () => { cancelled = true }
   }, [code, userId])
-
-  async function join() {
-    // Look up board by invite code
-    const { data: board, error: boardError } = await supabase
-      .from('boards')
-      .select('id')
-      .eq('invite_code', code.toUpperCase())
-      .single()
-
-    if (boardError || !board) {
-      setStatus('error')
-      setErrorMsg('Invalid invite code. Please check and try again.')
-      return
-    }
-
-    // Add user as editor (ignore conflict if already a member)
-    const { error: memberError } = await supabase
-      .from('board_members')
-      .insert({ board_id: board.id, user_id: userId, role: 'editor' })
-
-    // UNIQUE constraint violation (code 23505) means already a member — that's fine
-    if (memberError && memberError.code !== '23505') {
-      setStatus('error')
-      setErrorMsg(memberError.message)
-      return
-    }
-
-    navigate({ to: '/board/$boardId', params: { boardId: board.id } })
-  }
 
   if (status === 'error') {
     return (
