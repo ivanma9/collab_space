@@ -7,6 +7,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { supabase } from '../lib/supabase'
 import { BoardStage } from '../components/canvas/BoardStage'
 import { Connector } from '../components/canvas/Connector'
 import { Frame } from '../components/canvas/Frame'
@@ -22,7 +24,6 @@ import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
 import { useAIAgent } from '../hooks/useAIAgent'
-import type { BoardOperation } from '../hooks/useAIAgent'
 import { AICommandInput } from '../components/ai/AICommandInput'
 import type { BoardObject, ConnectorData, FrameData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
 import { useAuth } from '../contexts/AuthContext'
@@ -55,11 +56,25 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
   signOut: () => Promise<void>
 }) {
   const currentUser = { id: userId, name: displayName }
+  const navigate = useNavigate()
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
+  const [showShare, setShowShare] = useState(false)
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('boards')
+      .select('invite_code')
+      .eq('id', boardId)
+      .single()
+      .then(({ data }) => {
+        if (data) setInviteCode(data.invite_code)
+      })
+  }, [boardId])
 
   const { onlineUsers } = usePresence({
     boardId: boardId,
@@ -322,69 +337,11 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
     setConnectorMode(null)
   }, [connectorMode, createObject])
 
-  const handleAIOperation = useCallback(async (op: BoardOperation) => {
-    switch (op.tool) {
-      case 'createStickyNote': {
-        const p = op.params as { text: string; x: number; y: number; color?: string }
-        await createObject({
-          board_id: boardId, type: 'sticky_note',
-          x: p.x, y: p.y, width: 200, height: 150, rotation: 0,
-          z_index: objectsRef.current.length,
-          data: { text: p.text, color: p.color ?? '#FFD700' },
-        })
-        break
-      }
-      case 'createShape': {
-        const p = op.params as { type: 'rectangle' | 'circle'; x: number; y: number; width: number; height: number; fillColor?: string }
-        await createObject({
-          board_id: boardId, type: p.type,
-          x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
-          z_index: objectsRef.current.length,
-          data: p.type === 'circle'
-            ? { radius: Math.min(p.width, p.height) / 2, fillColor: p.fillColor ?? '#4ECDC4', strokeColor: '#2D3436', strokeWidth: 2 }
-            : { fillColor: p.fillColor ?? '#4ECDC4', strokeColor: '#2D3436', strokeWidth: 2 },
-        })
-        break
-      }
-      case 'createFrame': {
-        const p = op.params as { title: string; x: number; y: number; width: number; height: number }
-        await createObject({
-          board_id: boardId, type: 'frame',
-          x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
-          z_index: -(objectsRef.current.filter(o => o.type === 'frame').length + 1),
-          data: { title: p.title, backgroundColor: 'rgba(240,240,240,0.5)' },
-        })
-        break
-      }
-      case 'createConnector': {
-        const p = op.params as { fromId: string; toId: string; style?: string }
-        await createObject({
-          board_id: boardId, type: 'connector',
-          x: 0, y: 0, width: 0, height: 0, rotation: 0,
-          z_index: objectsRef.current.length,
-          data: { fromId: p.fromId, toId: p.toId, style: (p.style ?? 'arrow') as 'arrow' | 'line' | 'dashed' },
-        })
-        break
-      }
-      case 'moveObject': {
-        const p = op.params as { objectId: string; x: number; y: number }
-        updateObject(p.objectId, { x: p.x, y: p.y })
-        break
-      }
-      case 'updateText': {
-        const p = op.params as { objectId: string; newText: string }
-        const obj = objectsRef.current.find(o => o.id === p.objectId)
-        if (!obj) break
-        const d = obj.data as unknown as Record<string, unknown>
-        updateObject(p.objectId, { data: { ...d, text: p.newText } as any })
-        break
-      }
-    }
-  }, [createObject, updateObject])
-
-  const { executeCommand, isProcessing: aiProcessing, lastResult: aiResult, error: aiError } = useAIAgent({
-    boardId: boardId,
-    onOperation: handleAIOperation,
+  const { sendCommand, isLoading: aiIsLoading, error: aiError } = useAIAgent({
+    boardId,
+    objects,
+    createObject,
+    updateObject,
   })
 
   const handleObjectClick = useCallback((id: string, multiSelect = false) => {
@@ -428,6 +385,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
         <h1 className="text-xl font-bold text-gray-800">
           Cursor Sync Test
         </h1>
+        <button
+          onClick={() => navigate({ to: '/' })}
+          className="text-xs text-blue-500 hover:underline"
+        >
+          ← My Boards
+        </button>
 
         <div className="space-y-1 text-sm">
           <div className="flex items-center space-x-2" data-testid="connection-status" data-status={isConnected ? 'connected' : 'disconnected'}>
@@ -570,6 +533,35 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
           </button>
 
           <button
+            onClick={() => setShowShare(v => !v)}
+            className="w-full px-3 py-2 text-sm bg-emerald-500 hover:bg-emerald-600 rounded text-white font-medium transition"
+          >
+            Share Board
+          </button>
+
+          {showShare && inviteCode && (
+            <div className="bg-gray-50 border rounded p-3 space-y-2 text-xs">
+              <div>
+                <p className="text-gray-500 font-medium mb-1">Invite code</p>
+                <p className="font-mono text-lg font-bold text-gray-800 tracking-widest">{inviteCode}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 font-medium mb-1">Invite link</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/join/${inviteCode}`)
+                  }}
+                  className="w-full text-left bg-white border rounded px-2 py-1 font-mono text-gray-600 hover:bg-gray-100 truncate transition"
+                  title="Click to copy"
+                >
+                  {window.location.origin}/join/{inviteCode}
+                </button>
+                <p className="text-gray-400 mt-1">Click link to copy</p>
+              </div>
+            </div>
+          )}
+
+          <button
             onClick={signOut}
             className="w-full px-3 py-2 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700 transition"
             data-testid="sign-out-button"
@@ -709,9 +701,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
       )}
 
       <AICommandInput
-        onSubmit={executeCommand}
-        isProcessing={aiProcessing}
-        lastResult={aiResult}
+        onSubmit={sendCommand}
+        isProcessing={aiIsLoading}
+        lastResult={null}
         error={aiError}
       />
     </div>
