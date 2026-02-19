@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { CursorTest } from "../pages/CursorTest";
+import { Dashboard } from "../pages/Dashboard";
 
 export const Route = createFileRoute("/")({
-	component: CursorTest,
+	component: Dashboard,
 });
