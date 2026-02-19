@@ -29,10 +29,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
 import type Konva from 'konva'
 
-// Fixed test board ID for all users (must be a valid UUID)
-const TEST_BOARD_ID = '00000000-0000-0000-0000-000000000001'
-
-export function CursorTest() {
+export function CursorTest({ boardId }: { boardId: string }) {
   const { user, displayName, avatarUrl, signOut, isLoading } = useAuth()
 
   if (isLoading) {
@@ -47,10 +44,11 @@ export function CursorTest() {
     return <LoginPage />
   }
 
-  return <CursorTestInner userId={user.id} displayName={displayName} avatarUrl={avatarUrl} signOut={signOut} />
+  return <CursorTestInner boardId={boardId} userId={user.id} displayName={displayName} avatarUrl={avatarUrl} signOut={signOut} />
 }
 
-function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
+function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
+  boardId: string
   userId: string
   displayName: string
   avatarUrl: string | null
@@ -64,20 +62,20 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
 
   const { onlineUsers } = usePresence({
-    boardId: TEST_BOARD_ID,
+    boardId: boardId,
     userId,
     userName: displayName,
     avatarUrl,
   })
 
   const { cursors, broadcastCursor, isConnected } = useCursors({
-    boardId: TEST_BOARD_ID,
+    boardId: boardId,
     userId: currentUser.id,
     userName: currentUser.name,
   })
 
   const { objects, createObject, updateObject, deleteObject, isLoading, error } = useRealtimeSync({
-    boardId: TEST_BOARD_ID,
+    boardId: boardId,
     userId: currentUser.id,
   })
 
@@ -175,7 +173,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     const randomColor = colors[Math.floor(Math.random() * colors.length)]!
 
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'sticky_note',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -196,7 +194,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     const randomFill = colors[Math.floor(Math.random() * colors.length)]!
 
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'rectangle',
       x: cursorPos.x || 150,
       y: cursorPos.y || 150,
@@ -218,7 +216,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
     const randomFill = colors[Math.floor(Math.random() * colors.length)]!
 
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'circle',
       x: cursorPos.x || 200,
       y: cursorPos.y || 200,
@@ -238,7 +236,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   // Create a line at current cursor position
   const handleCreateLine = useCallback(async () => {
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'line',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -256,7 +254,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
   const handleCreateText = useCallback(async () => {
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'text',
       x: cursorPos.x || 300,
       y: cursorPos.y || 300,
@@ -296,7 +294,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
 
   const handleCreateFrame = useCallback(async () => {
     await createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'frame',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -311,7 +309,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
     createObject({
-      board_id: TEST_BOARD_ID,
+      board_id: boardId,
       type: 'connector',
       x: 0,
       y: 0,
@@ -329,7 +327,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       case 'createStickyNote': {
         const p = op.params as { text: string; x: number; y: number; color?: string }
         await createObject({
-          board_id: TEST_BOARD_ID, type: 'sticky_note',
+          board_id: boardId, type: 'sticky_note',
           x: p.x, y: p.y, width: 200, height: 150, rotation: 0,
           z_index: objectsRef.current.length,
           data: { text: p.text, color: p.color ?? '#FFD700' },
@@ -339,7 +337,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       case 'createShape': {
         const p = op.params as { type: 'rectangle' | 'circle'; x: number; y: number; width: number; height: number; fillColor?: string }
         await createObject({
-          board_id: TEST_BOARD_ID, type: p.type,
+          board_id: boardId, type: p.type,
           x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
           z_index: objectsRef.current.length,
           data: p.type === 'circle'
@@ -351,7 +349,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       case 'createFrame': {
         const p = op.params as { title: string; x: number; y: number; width: number; height: number }
         await createObject({
-          board_id: TEST_BOARD_ID, type: 'frame',
+          board_id: boardId, type: 'frame',
           x: p.x, y: p.y, width: p.width, height: p.height, rotation: 0,
           z_index: -(objectsRef.current.filter(o => o.type === 'frame').length + 1),
           data: { title: p.title, backgroundColor: 'rgba(240,240,240,0.5)' },
@@ -361,7 +359,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
       case 'createConnector': {
         const p = op.params as { fromId: string; toId: string; style?: string }
         await createObject({
-          board_id: TEST_BOARD_ID, type: 'connector',
+          board_id: boardId, type: 'connector',
           x: 0, y: 0, width: 0, height: 0, rotation: 0,
           z_index: objectsRef.current.length,
           data: { fromId: p.fromId, toId: p.toId, style: (p.style ?? 'arrow') as 'arrow' | 'line' | 'dashed' },
@@ -385,7 +383,7 @@ function CursorTestInner({ userId, displayName, avatarUrl, signOut }: {
   }, [createObject, updateObject])
 
   const { executeCommand, isProcessing: aiProcessing, lastResult: aiResult, error: aiError } = useAIAgent({
-    boardId: TEST_BOARD_ID,
+    boardId: boardId,
     onOperation: handleAIOperation,
   })
 
