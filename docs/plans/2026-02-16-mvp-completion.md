@@ -1809,43 +1809,43 @@ Expected: Build succeeds with no errors.
 
 ---
 
-## Future: AI Agent (Tasks 11–13) — Deferred from MVP
+## AI Agent (Tasks 11–13) — Active
 
-> **Status:** Code exists in repo but is deactivated from the UI. Revisit post-MVP.
+> **Status:** Deployed and active. Edge Function deployed with `--no-verify-jwt` to support anonymous/guest users.
 
 ### What was built
 
-- **`supabase/functions/ai-agent/tools.ts`** — 7 Anthropic tool definitions:
-  `createStickyNote`, `createShape`, `createFrame`, `createConnector`, `moveObject`, `updateText`, `getBoardState`
-- **`supabase/functions/ai-agent/index.ts`** — Deno Edge Function with CORS, agentic tool-use loop (max 10 iterations), model `claude-sonnet-4-5-20250929`
-- **`src/hooks/useAIAgent.ts`** — Client hook that calls the Edge Function and dispatches returned `BoardOperation[]` via an `onOperation` callback
+- **`supabase/functions/ai-agent/tools.ts`** — 11 Anthropic tool definitions:
+  `createStickyNote`, `createShape`, `createFrame`, `createTextBox`, `createConnector`, `moveObject`, `resizeObject`, `updateStickyNoteText`, `updateTextBoxContent`, `changeColor`, `getBoardState`
+- **`supabase/functions/ai-agent/index.ts`** — Deno Edge Function with CORS, single-pass tool-use call, model `claude-haiku-4-5-20251001`
+- **`src/hooks/useAIAgent.ts`** — Client hook that calls the Edge Function and dispatches returned tool calls via `createObject`/`updateObject`
 - **`src/components/ai/AICommandInput.tsx`** — Floating bottom-center command bar with example prompts, processing spinner, success/error states
 
 ### Architecture
 
 - User types a natural-language command (e.g. "add three sticky notes about project milestones")
-- Client POSTs `{ command, boardId }` to the Edge Function
-- Edge Function runs an agentic loop: calls Claude with the 7 tools, executes `getBoardState` server-side, collects all other tool calls as `BoardOperation[]`
-- Client receives the operations array and executes them through the existing `createObject`/`updateObject` path (same as manual user actions — fully synced)
+- Client POSTs `{ command, boardState, boardId }` to the Edge Function
+- Edge Function calls Claude with `tool_choice: { type: "any" }`, collects all tool_use blocks
+- Client receives the tool calls array and executes them through the existing `createObject`/`updateObject` path (same as manual user actions — fully synced via broadcast + DB)
 
-### Deployment steps (when ready)
+### Deployment
 
 ```bash
 # Set Anthropic API key as Supabase secret
 npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-your-key-here
 
-# Deploy the Edge Function
-npx supabase functions deploy ai-agent
+# Deploy the Edge Function (--no-verify-jwt required for anonymous users)
+npx supabase functions deploy ai-agent --no-verify-jwt
 ```
 
-### Re-activation steps
+### Resolved issues
 
-1. Uncomment `useAIAgent` and `handleAIOperation` in `src/pages/CursorTest.tsx`
-2. Add `<AICommandInput>` back to the JSX toolbar area
-3. Deploy Edge Function (see above)
-4. Test: type "add a sticky note that says hello" → note should appear on board
+- **AI-generated IDs caused 400 errors (2026-02-20):** The AI model generated human-readable IDs (e.g. `"pros-cons-1-1"`) instead of valid UUIDs, which Postgres rejected on insert. Fixed by always letting Postgres generate UUIDs via `gen_random_uuid()` and relying on the existing temp-ID swap mechanism in `useRealtimeSync`.
+- **401 on endpoint for anonymous users (2026-02-20):** Deployed with `--no-verify-jwt` to allow guest users to call the function. See `docs/architecture-decisions.md` AD-001 for tradeoff details.
 
-### Desired future UX improvements
+### Desired future improvements
 
 - **Connectors**: replace two-click workflow with floating-dot drag UX — grab a dot from a selected object's edge, drag onto target object to create connector; support both arrow and plain line variants
 - **AI command**: consider a slash-command palette (`/ai add ...`) rather than a persistent input bar
+- **Rate limiting**: add application-level rate limiting to prevent abuse of the unauthenticated endpoint
+- **Board state**: send current board state to the AI so it can reference existing objects for moves/updates
