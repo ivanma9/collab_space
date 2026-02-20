@@ -19,8 +19,9 @@ import { StickyNote } from '../components/canvas/StickyNote'
 import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
-import { PresenceBar } from '../components/presence/PresenceBar'
 import { AICommandInput } from '../components/ai/AICommandInput'
+import { BoardToolbar } from '../components/toolbar/BoardToolbar'
+import { BoardTopBar } from '../components/toolbar/BoardTopBar'
 import { useAuth } from '../contexts/AuthContext'
 import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
@@ -148,12 +149,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
 
   // --- Local UI state ---
   const [inviteCode, setInviteCode] = useState<string | null>(null)
-  const [showShare, setShowShare] = useState(false)
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
+  const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame' | 'connector'>('select')
 
   // --- Fetch invite code for sharing ---
   useEffect(() => {
@@ -441,6 +442,45 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     updateObject,
   })
 
+  // --- Toolbar tool selection ---
+  const handleToolSelect = useCallback((tool: typeof activeTool) => {
+    if (tool === 'connector') {
+      if (connectorMode) {
+        setConnectorMode(null)
+        setActiveTool('select')
+      } else if (selectedIds.size === 1) {
+        const fromId = Array.from(selectedIds)[0]!
+        setConnectorMode({ fromId })
+        clearSelection()
+        setActiveTool('connector')
+      }
+      return
+    }
+    setConnectorMode(null)
+    setActiveTool(tool)
+
+    // Immediately create the object for non-select tools
+    const creators: Record<string, (() => void) | undefined> = {
+      sticky_note: handleCreateStickyNote,
+      rectangle: handleCreateRectangle,
+      circle: handleCreateCircle,
+      line: handleCreateLine,
+      text: handleCreateText,
+      frame: handleCreateFrame,
+    }
+    const creator = creators[tool]
+    if (creator) {
+      creator()
+      // Reset to select after creating
+      setActiveTool('select')
+    }
+  }, [connectorMode, selectedIds, clearSelection, handleCreateStickyNote, handleCreateRectangle, handleCreateCircle, handleCreateLine, handleCreateText, handleCreateFrame])
+
+  const handleDelete = useCallback(() => {
+    selectedIds.forEach((id) => { deleteObject(id) })
+    clearSelection()
+  }, [selectedIds, deleteObject, clearSelection])
+
   // --- Object interaction handlers ---
   const handleObjectClick = useCallback((id: string, multiSelect = false) => {
     if (connectorMode) {
@@ -478,199 +518,15 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       className="relative w-screen h-screen overflow-hidden bg-gray-100"
       style={{ cursor: connectorMode ? 'crosshair' : 'default' }}
     >
-      {/* Info Panel */}
-      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg p-4 space-y-2 max-w-sm">
-        <h1 className="text-xl font-bold text-gray-800">
-          Cursor Sync Test
-        </h1>
-        <button
-          onClick={() => navigate({ to: '/' })}
-          className="text-xs text-blue-500 hover:underline"
-        >
-          ← My Boards
-        </button>
-
-        <div className="space-y-1 text-sm">
-          <div className="flex items-center space-x-2" data-testid="connection-status" data-status={isConnected ? 'connected' : 'disconnected'}>
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}
-            />
-            <span className="text-gray-700">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
-
-          <div className="text-gray-600">
-            <strong>Your ID:</strong> {currentUser.name} ({currentUser.id.slice(0, 8)}...)
-          </div>
-
-          <div className="text-gray-600">
-            <strong>Remote Cursors:</strong> {cursors.size}
-          </div>
-
-          <div className="text-gray-600">
-            <strong>Objects:</strong> {objects.length} (Notes: {stickyNotes.length}, Shapes: {shapes.length}, Connectors: {connectors.length}, Text: {textElements.length}, Frames: {frames.length})
-          </div>
-
-          <div className="text-gray-600">
-            <strong>Selected:</strong> {selectedIds.size}
-          </div>
-
-          <div className="text-gray-600">
-            <strong>Your Position:</strong> ({Math.round(cursorPos.x)},{' '}
-            {Math.round(cursorPos.y)})
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
-        </div>
-
-        <div className="border-t pt-2 mt-2">
-          <p className="text-xs text-gray-500">
-            <strong>Instructions:</strong>
-            <br />
-            1. Open in two browser windows
-            <br />
-            2. Move your mouse in one window
-            <br />
-            3. See the cursor in the other window
-            <br />
-            <strong>Target:</strong> Instant cursor sync (&lt;50ms)
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <button
-            onClick={handleCreateStickyNote}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="sticky-note-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Sticky Note'}
-          </button>
-
-          <button
-            onClick={handleCreateRectangle}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="rectangle-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Rectangle'}
-          </button>
-
-          <button
-            onClick={handleCreateCircle}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-green-500 hover:bg-green-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="circle-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Circle'}
-          </button>
-
-          <button
-            onClick={handleCreateLine}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="line-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Line'}
-          </button>
-
-          <button
-            onClick={handleCreateText}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-teal-500 hover:bg-teal-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="text-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Text'}
-          </button>
-
-          <button
-            onClick={handleCreateFrame}
-            disabled={isLoading}
-            className="w-full px-3 py-2 text-sm bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-            data-testid="frame-tool"
-          >
-            {isLoading ? 'Creating...' : '+ Add Frame'}
-          </button>
-
-          <button
-            onClick={() => {
-              selectedIds.forEach((id) => { deleteObject(id) })
-              clearSelection()
-            }}
-            disabled={selectedIds.size === 0}
-            className="w-full px-3 py-2 text-sm bg-red-500 hover:bg-red-600 disabled:bg-gray-300 rounded text-white font-medium transition"
-          >
-            {selectedIds.size > 0 ? `Delete Selected (${selectedIds.size})` : 'Delete Selected'}
-          </button>
-
-          <button
-            onClick={() => {
-              if (connectorMode) {
-                setConnectorMode(null)
-              } else if (selectedIds.size === 1) {
-                const fromId = Array.from(selectedIds)[0]!
-                setConnectorMode({ fromId })
-                clearSelection()
-              }
-            }}
-            disabled={!connectorMode && selectedIds.size !== 1}
-            className={`w-full px-3 py-2 text-sm rounded text-white font-medium transition ${
-              connectorMode
-                ? 'bg-yellow-500 hover:bg-yellow-600'
-                : 'bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300'
-            }`}
-          >
-            {connectorMode ? 'Cancel Connect (click target)' : 'Connect (select 1 first)'}
-          </button>
-
-          <button
-            onClick={() => setShowShare(v => !v)}
-            className="w-full px-3 py-2 text-sm bg-emerald-500 hover:bg-emerald-600 rounded text-white font-medium transition"
-          >
-            Share Board
-          </button>
-
-          {showShare && inviteCode && (
-            <div className="bg-gray-50 border rounded p-3 space-y-2 text-xs">
-              <div>
-                <p className="text-gray-500 font-medium mb-1">Invite code</p>
-                <p className="font-mono text-lg font-bold text-gray-800 tracking-widest">{inviteCode}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 font-medium mb-1">Invite link</p>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/join/${inviteCode}`)
-                  }}
-                  className="w-full text-left bg-white border rounded px-2 py-1 font-mono text-gray-600 hover:bg-gray-100 truncate transition"
-                  title="Click to copy"
-                >
-                  {window.location.origin}/join/{inviteCode}
-                </button>
-                <p className="text-gray-400 mt-1">Click link to copy</p>
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={signOut}
-            className="w-full px-3 py-2 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700 transition"
-            data-testid="sign-out-button"
-          >
-            Sign out ({displayName})
-          </button>
-        </div>
-      </div>
-
-      {/* Presence Bar */}
-      <PresenceBar onlineUsers={onlineUsers} currentUserId={userId} />
+      {/* Top Bar */}
+      <BoardTopBar
+        displayName={displayName}
+        inviteCode={inviteCode}
+        onlineUsers={onlineUsers}
+        currentUserId={userId}
+        onNavigateBack={() => navigate({ to: '/' })}
+        onSignOut={signOut}
+      />
 
       {/* Canvas */}
       <div
@@ -703,7 +559,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           />
         ))}
 
-        {/* Render shapes (lower z-index) */}
+        {/* Render shapes */}
         {shapes.map((shape) => (
           <Shape
             key={shape.id}
@@ -716,7 +572,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           />
         ))}
 
-        {/* Render all sticky notes */}
+        {/* Render sticky notes */}
         {stickyNotes.map((note) => (
           <StickyNote
             key={note.id}
@@ -730,7 +586,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           />
         ))}
 
-        {/* Render all text elements */}
+        {/* Render text elements */}
         {textElements.map((textEl) => (
           <TextElement
             key={textEl.id}
@@ -751,17 +607,14 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           onTransformEnd={handleTransformEnd}
         />
 
-        {/* Render all remote cursors */}
+        {/* Remote cursors */}
         {Array.from(cursors.values()).map((cursor) => (
           <RemoteCursor key={cursor.userId} cursor={cursor} />
         ))}
-
-        {/* Grid background (optional visual aid) */}
-        {/* You can add a grid here later for better spatial reference */}
       </BoardStage>
       </div>
 
-      {/* Text edit overlay (sticky note or text element) */}
+      {/* Text edit overlay */}
       {editingId && (
         <TextEditOverlayContent
           editingId={editingId}
@@ -773,19 +626,41 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         />
       )}
 
-      {/* Latency Warning */}
-      {!isConnected && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          ⚠️ Not connected to Supabase Realtime
-        </div>
-      )}
+      {/* Connection status dot */}
+      <div
+        className="absolute bottom-4 left-4 z-10"
+        data-testid="connection-status"
+        data-status={isConnected ? 'connected' : 'disconnected'}
+        title={isConnected ? 'Connected' : 'Disconnected'}
+      >
+        <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+      </div>
 
+      {/* AI Command Input */}
       <AICommandInput
         onSubmit={executeCommand}
         isProcessing={aiIsProcessing}
         lastResult={aiLastResult}
         error={aiError}
       />
+
+      {/* Bottom Toolbar */}
+      <BoardToolbar
+        activeTool={activeTool}
+        onToolSelect={handleToolSelect}
+        onDelete={handleDelete}
+        canDelete={selectedIds.size > 0}
+        deleteCount={selectedIds.size}
+        isLoading={isLoading}
+        connectorMode={!!connectorMode}
+      />
+
+      {/* Error display */}
+      {error && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm shadow-md">
+          {error}
+        </div>
+      )}
     </div>
   )
 }
