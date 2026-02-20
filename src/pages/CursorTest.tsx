@@ -272,6 +272,24 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [selectedIds, objects, updateObject])
 
+  // Sync activeColor from the first selected object when selection changes
+  useEffect(() => {
+    if (selectedIds.size === 0) return
+    const firstId = Array.from(selectedIds)[0]!
+    const obj = objects.find((o) => o.id === firstId)
+    if (!obj) return
+
+    let color: string | undefined
+    if (obj.type === "sticky_note") color = obj.data.color
+    else if (obj.type === "rectangle") color = obj.data.fillColor
+    else if (obj.type === "circle") color = obj.data.fillColor
+    else if (obj.type === "line") color = obj.data.strokeColor
+    else if (obj.type === "text") color = obj.data.color
+    else if (obj.type === "frame") color = obj.data.backgroundColor
+
+    if (color) setActiveColor(color)
+  }, [selectedIds, objects])
+
   // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
