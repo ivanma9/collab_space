@@ -46,8 +46,6 @@ import { LoginPage } from './LoginPage'
 // Constants
 // ---------------------------------------------------------------------------
 
-const STICKY_NOTE_COLORS = ['#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFA07A', '#F7DC6F'] as const
-const SHAPE_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9'] as const
 const DUPLICATE_OFFSET = 20
 
 // ---------------------------------------------------------------------------
@@ -155,6 +153,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
   const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame' | 'connector'>('select')
+  const [activeColor, setActiveColor] = useState<string>("#FFD700")
 
   // --- Fetch invite code for sharing ---
   useEffect(() => {
@@ -248,6 +247,30 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [selectedIds, objects, createObject])
 
+  const handleColorChange = useCallback((color: string) => {
+    setActiveColor(color)
+    if (selectedIds.size === 0) return
+
+    selectedIds.forEach((id) => {
+      const obj = objects.find((o) => o.id === id)
+      if (!obj) return
+
+      if (obj.type === "sticky_note") {
+        void updateObject(id, { data: { ...obj.data, color } })
+      } else if (obj.type === "rectangle") {
+        void updateObject(id, { data: { ...obj.data, fillColor: color } })
+      } else if (obj.type === "circle") {
+        void updateObject(id, { data: { ...obj.data, fillColor: color } })
+      } else if (obj.type === "line") {
+        void updateObject(id, { data: { ...obj.data, strokeColor: color } })
+      } else if (obj.type === "text") {
+        void updateObject(id, { data: { ...obj.data, color } })
+      } else if (obj.type === "frame") {
+        void updateObject(id, { data: { ...obj.data, backgroundColor: color } })
+      }
+    })
+  }, [selectedIds, objects, updateObject])
+
   // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -286,8 +309,6 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
 
   // --- Object creation handlers ---
   const handleCreateStickyNote = useCallback(async () => {
-    const randomColor = STICKY_NOTE_COLORS[Math.floor(Math.random() * STICKY_NOTE_COLORS.length)] ?? '#FFD700'
-
     await createObject({
       board_id: boardId,
       type: 'sticky_note',
@@ -299,14 +320,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       z_index: objects.length,
       data: {
         text: 'New sticky note!\nDouble-click to edit',
-        color: randomColor,
+        color: activeColor,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
   const handleCreateRectangle = useCallback(async () => {
-    const randomFill = SHAPE_COLORS[Math.floor(Math.random() * SHAPE_COLORS.length)] ?? '#FF6B6B'
-
     await createObject({
       board_id: boardId,
       type: 'rectangle',
@@ -317,16 +336,14 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       rotation: 0,
       z_index: objects.length,
       data: {
-        fillColor: randomFill,
+        fillColor: activeColor,
         strokeColor: '#2D3436',
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
   const handleCreateCircle = useCallback(async () => {
-    const randomFill = SHAPE_COLORS[Math.floor(Math.random() * SHAPE_COLORS.length)] ?? '#4ECDC4'
-
     await createObject({
       board_id: boardId,
       type: 'circle',
@@ -338,12 +355,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       z_index: objects.length,
       data: {
         radius: 100,
-        fillColor: randomFill,
+        fillColor: activeColor,
         strokeColor: '#2D3436',
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
   const handleCreateLine = useCallback(async () => {
     await createObject({
@@ -357,11 +374,11 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       z_index: objects.length,
       data: {
         points: [0, 0, 200, 100],
-        strokeColor: '#2D3436',
+        strokeColor: activeColor,
         strokeWidth: 4,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
   const handleCreateText = useCallback(async () => {
     await createObject({
@@ -373,9 +390,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       height: 40,
       rotation: 0,
       z_index: objectsRef.current.length,
-      data: { text: 'New text', fontSize: 18, color: '#000000' } satisfies TextData,
+      data: { text: 'New text', fontSize: 18, color: activeColor } satisfies TextData,
     })
-  }, [boardId, createObject, cursorPos])
+  }, [boardId, createObject, cursorPos, activeColor])
 
   // --- Filtered object lists (by type for rendering) ---
   const { stickyNotes, shapes, connectors, textElements, frames } = useMemo(
@@ -414,9 +431,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       height: 300,
       rotation: 0,
       z_index: -(frames.length + 1),  // negative so frames stay behind all regular objects
-      data: { title: 'New Frame', backgroundColor: 'rgba(240,240,240,0.5)' } satisfies FrameData,
+      data: { title: 'New Frame', backgroundColor: activeColor } satisfies FrameData,
     })
-  }, [boardId, createObject, cursorPos, frames.length])
+  }, [boardId, createObject, cursorPos, frames.length, activeColor])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
@@ -653,6 +670,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         deleteCount={selectedIds.size}
         isLoading={isLoading}
         connectorMode={!!connectorMode}
+        activeColor={activeColor}
+        onColorChange={handleColorChange}
+        hasSelection={selectedIds.size > 0}
       />
 
       {/* Error display */}
