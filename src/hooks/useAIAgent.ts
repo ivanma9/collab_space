@@ -1,46 +1,162 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { BoardObject } from '../lib/database.types'
 
-export interface BoardOperation {
-  tool: string
-  params: Record<string, unknown>
+const STICKY_COLORS: Record<string, string> = {
+  yellow: '#FFD700',
+  pink: '#FF6B6B',
+  blue: '#4ECDC4',
+  green: '#95E1D3',
+  orange: '#FFA07A',
+  purple: '#9B59B6',
 }
 
-interface UseAIAgentOptions {
+const SHAPE_COLORS: Record<string, string> = {
+  red: '#FF6B6B',
+  blue: '#4ECDC4',
+  green: '#95E1D3',
+  yellow: '#FFD700',
+  orange: '#FFA07A',
+  purple: '#9B59B6',
+  gray: '#636E72',
+  white: '#FFFFFF',
+}
+
+export interface UseAIAgentOptions {
   boardId: string
-  onOperation: (op: BoardOperation) => Promise<void>
+  objects: BoardObject[]
+  createObject: (obj: Omit<BoardObject, 'id' | 'created_at' | 'updated_at' | 'created_by'> & { id?: string }) => Promise<void>
+  updateObject: (id: string, updates: Partial<BoardObject>) => Promise<void>
 }
 
-export function useAIAgent({ boardId, onOperation }: UseAIAgentOptions) {
+export function useAIAgent({ boardId, objects, createObject, updateObject }: UseAIAgentOptions) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [lastResult, setLastResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const executeCommand = useCallback(async (command: string) => {
+  async function executeCommand(command: string) {
     setIsProcessing(true)
     setError(null)
     setLastResult(null)
 
+    const boardState = objects.map((obj) => ({
+      id: obj.id,
+      type: obj.type,
+      x: obj.x,
+      y: obj.y,
+      width: obj.width,
+      height: obj.height,
+      data: obj.data,
+    }))
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke('ai-agent', {
-        body: { command, boardId },
+        body: { command, boardState, boardId },
       })
-
       if (fnError) throw fnError
 
-      const operations: BoardOperation[] = data?.operations ?? []
-
-      for (const op of operations) {
-        await onOperation(op)
+      if (!data.toolCalls?.length) {
+        setError("The AI couldn't determine the correct action. Please try rephrasing your request.")
+        setIsProcessing(false)
+        return
       }
 
-      setLastResult(`Done — ${operations.length} operation${operations.length === 1 ? '' : 's'}`)
+      let zOffset = 0
+      for (const call of data.toolCalls) {
+        try {
+          await executeToolCall(call, objects.length + zOffset)
+          zOffset++
+        } catch (err) {
+          console.error(`Tool call "${call.name}" failed, skipping:`, err)
+        }
+      }
+      setLastResult(`Done — executed ${data.toolCalls.length} operation(s)`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'AI command failed')
+      setError('AI command failed. Try again.')
     } finally {
       setIsProcessing(false)
     }
-  }, [boardId, onOperation])
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function executeToolCall(call: { name: string; input: any }, zIndex: number) {
+    const { input } = call
+
+    const mergeData = (objectId: string, patch: Record<string, any>) => {
+      const existing = objects.find((o) => o.id === objectId)
+      return updateObject(objectId, { data: { ...(existing?.data as any), ...patch } })
+    }
+
+    switch (call.name) {
+      case 'createStickyNote':
+        return createObject({
+          id: input.id,
+          board_id: boardId,
+          type: 'sticky_note',
+          x: input.x, y: input.y, width: 200, height: 200,
+          rotation: 0, z_index: zIndex,
+          data: { text: input.text, color: STICKY_COLORS[input.color] ?? input.color },
+        })
+      case 'createShape': {
+        const color = SHAPE_COLORS[input.color] ?? input.color
+        const shapeType = input.shapeType as 'rectangle' | 'circle' | 'line'
+        const shapeData =
+          shapeType === 'circle'
+            ? { radius: Math.min(input.width, input.height) / 2, fillColor: color, strokeColor: '#2D3436', strokeWidth: 2 }
+            : shapeType === 'line'
+            ? { points: [0, 0, input.width, input.height], strokeColor: color, strokeWidth: 4 }
+            : { fillColor: color, strokeColor: '#2D3436', strokeWidth: 2 }
+        return createObject({
+          id: input.id,
+          board_id: boardId,
+          type: shapeType,
+          x: input.x, y: input.y, width: input.width, height: input.height,
+          rotation: 0, z_index: zIndex,
+          data: shapeData,
+        })
+      }
+      case 'createFrame':
+        return createObject({
+          id: input.id,
+          board_id: boardId,
+          type: 'frame',
+          x: input.x, y: input.y, width: input.width, height: input.height,
+          rotation: 0, z_index: -(objects.filter((o) => o.type === 'frame').length + 1),
+          data: { title: input.title, backgroundColor: 'rgba(240,240,240,0.5)' },
+        })
+      case 'createTextBox':
+        return createObject({
+          id: input.id,
+          board_id: boardId,
+          type: 'text',
+          x: input.x, y: input.y, width: 200, height: 50,
+          rotation: 0, z_index: zIndex,
+          data: { text: input.text, fontSize: input.fontSize ?? 16, color: input.color ?? '#000000' },
+        })
+      case 'createConnector':
+        return createObject({
+          id: input.id,
+          board_id: boardId,
+          type: 'connector',
+          x: 0, y: 0, width: 0, height: 0,
+          rotation: 0, z_index: zIndex,
+          data: { fromId: input.fromId, toId: input.toId, style: input.style },
+        })
+      case 'moveObject':
+        return updateObject(input.objectId, { x: input.x, y: input.y })
+      case 'resizeObject':
+        return updateObject(input.objectId, { width: input.width, height: input.height })
+      case 'updateStickyNoteText':
+      case 'updateTextBoxContent':
+        return mergeData(input.objectId, { text: input.newText })
+      case 'changeColor': {
+        const colorHex = SHAPE_COLORS[input.color] ?? STICKY_COLORS[input.color] ?? input.color
+        return mergeData(input.objectId, { color: colorHex, fillColor: colorHex })
+      }
+      case 'getBoardState':
+        return
+    }
+  }
 
   return { executeCommand, isProcessing, lastResult, error }
 }

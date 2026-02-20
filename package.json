@@ -21,7 +21,7 @@
     "format": "prettier \"src/**/*.{ts,tsx}\" --write",
     "lint": "eslint --max-warnings 0",
     "lint:fix": "eslint --max-warnings 0 --fix",
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "storybook": "storybook dev -p 6006",
     "storybook:setup": "node node_modules/@storybook/addon-styling/bin/postinstall.js",
     "storybook:build": "storybook build",
@@ -37,6 +37,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.77.0",
     "@hookform/resolvers": "^5.2.2",
     "@nivo/bar": "^0.99.0",
     "@nivo/core": "^0.99.0",

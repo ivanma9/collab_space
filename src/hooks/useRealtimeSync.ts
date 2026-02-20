@@ -25,7 +25,7 @@ interface UseRealtimeSyncOptions {
 
 interface UseRealtimeSyncReturn {
   objects: BoardObject[]
-  createObject: (object: Omit<BoardObject, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => Promise<void>
+  createObject: (object: Omit<BoardObject, 'id' | 'created_at' | 'updated_at' | 'created_by'> & { id?: string }) => Promise<void>
   updateObject: (id: string, updates: Partial<BoardObject>) => Promise<void>
   deleteObject: (id: string) => Promise<void>
   isLoading: boolean
@@ -98,9 +98,10 @@ export function useRealtimeSync({
    * Pattern B: Broadcast first (instant), then persist to DB (async)
    */
   const createObject = useCallback(
-    async (objectData: Omit<BoardObject, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
-      // Generate temporary ID for optimistic update (outside try block for catch access)
-      const tempId = `temp_${Date.now()}_${Math.random()}`
+    async (objectData: Omit<BoardObject, 'id' | 'created_at' | 'updated_at' | 'created_by'> & { id?: string }) => {
+      // Use AI-provided UUID when available (enables connector fromId/toId pre-generation),
+      // otherwise generate a local temp ID for optimistic update
+      const tempId = objectData.id ?? `temp_${Date.now()}_${Math.random()}`
       const now = new Date().toISOString()
 
       try {
@@ -137,6 +138,7 @@ export function useRealtimeSync({
         const { data, error: insertError } = await supabase
           .from('board_objects')
           .insert({
+            ...(objectData.id ? { id: objectData.id } : {}),
             board_id: objectData.board_id,
             type: objectData.type,
             x: objectData.x,

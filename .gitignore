@@ -41,3 +41,7 @@ storybook-static
 # git worktrees
 .worktrees
 playwright/.auth/
+
+# Claude Code
+CLAUDE.md
+proj_claude.md

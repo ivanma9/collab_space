@@ -1,9 +1,8 @@
-FROM nginx:stable-alpine
-
+FROM node:20-alpine
+RUN npm install -g pnpm
 WORKDIR /app
-
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install
 COPY . .
-
-RUN cp -r /app/dist/* /usr/share/nginx/html
-
-EXPOSE 80
+EXPOSE 3000
+CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "3000"]

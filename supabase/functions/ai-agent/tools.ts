@@ -1,96 +1,151 @@
-import type Anthropic from 'npm:@anthropic-ai/sdk'
-
-export const boardTools: Anthropic.Tool[] = [
+export const tools = [
   {
-    name: 'createStickyNote',
-    description: 'Create a sticky note on the board',
+    name: "createStickyNote",
+    description: "Create a sticky note on the board",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        text: { type: 'string', description: 'Text content of the sticky note' },
-        x: { type: 'number', description: 'X position on canvas' },
-        y: { type: 'number', description: 'Y position on canvas' },
-        color: { type: 'string', description: 'Background color (hex, e.g. #FFD700). Default: #FFD700' },
+        id:    { type: "string", description: "UUID for this object — you must generate this" },
+        text:  { type: "string" },
+        x:     { type: "number" },
+        y:     { type: "number" },
+        color: { type: "string", enum: ["yellow", "pink", "blue", "green", "orange", "purple"] }
       },
-      required: ['text', 'x', 'y'],
-    },
+      required: ["id", "text", "x", "y", "color"]
+    }
   },
   {
-    name: 'createShape',
-    description: 'Create a shape (rectangle or circle) on the board',
+    name: "createShape",
+    description: "Create a rectangle, circle, or line",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        type: { type: 'string', enum: ['rectangle', 'circle'] },
-        x: { type: 'number' },
-        y: { type: 'number' },
-        width: { type: 'number' },
-        height: { type: 'number' },
-        fillColor: { type: 'string', description: 'Fill color (hex). Default: #4ECDC4' },
+        id:        { type: "string" },
+        shapeType: { type: "string", enum: ["rectangle", "circle", "line"] },
+        x:         { type: "number" },
+        y:         { type: "number" },
+        width:     { type: "number" },
+        height:    { type: "number" },
+        color:     { type: "string", enum: ["red", "blue", "green", "yellow", "orange", "purple", "gray", "white"] }
       },
-      required: ['type', 'x', 'y', 'width', 'height'],
-    },
+      required: ["id", "shapeType", "x", "y", "width", "height", "color"]
+    }
   },
   {
-    name: 'createFrame',
-    description: 'Create a labeled frame (grouping area) on the board',
+    name: "createFrame",
+    description: "Create a labeled frame to group content",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        title: { type: 'string', description: 'Frame label/title' },
-        x: { type: 'number' },
-        y: { type: 'number' },
-        width: { type: 'number' },
-        height: { type: 'number' },
+        id:     { type: "string" },
+        title:  { type: "string" },
+        x:      { type: "number" },
+        y:      { type: "number" },
+        width:  { type: "number" },
+        height: { type: "number" }
       },
-      required: ['title', 'x', 'y', 'width', 'height'],
-    },
+      required: ["id", "title", "x", "y", "width", "height"]
+    }
   },
   {
-    name: 'createConnector',
-    description: 'Create an arrow connecting two objects by their IDs',
+    name: "createTextBox",
+    description: "Create a standalone text element on the board",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        fromId: { type: 'string', description: 'ID of source object' },
-        toId: { type: 'string', description: 'ID of target object' },
-        style: { type: 'string', enum: ['arrow', 'line', 'dashed'], description: 'Default: arrow' },
+        id:       { type: "string" },
+        text:     { type: "string" },
+        x:        { type: "number" },
+        y:        { type: "number" },
+        fontSize: { type: "number" },
+        color:    { type: "string" }
       },
-      required: ['fromId', 'toId'],
-    },
+      required: ["id", "text", "x", "y"]
+    }
   },
   {
-    name: 'moveObject',
-    description: 'Move an existing object to a new position',
+    name: "createConnector",
+    description: "Draw a connector arrow between two objects",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        objectId: { type: 'string' },
-        x: { type: 'number' },
-        y: { type: 'number' },
+        id:     { type: "string" },
+        fromId: { type: "string", description: "ID of the source object" },
+        toId:   { type: "string", description: "ID of the target object" },
+        style:  { type: "string", enum: ["arrow", "line", "dashed"] }
       },
-      required: ['objectId', 'x', 'y'],
-    },
+      required: ["id", "fromId", "toId", "style"]
+    }
   },
   {
-    name: 'updateText',
-    description: 'Update the text content of a sticky note or text element',
+    name: "moveObject",
+    description: "Move an existing object to new coordinates",
     input_schema: {
-      type: 'object',
+      type: "object",
       properties: {
-        objectId: { type: 'string' },
-        newText: { type: 'string' },
+        objectId: { type: "string" },
+        x:        { type: "number" },
+        y:        { type: "number" }
       },
-      required: ['objectId', 'newText'],
-    },
+      required: ["objectId", "x", "y"]
+    }
   },
   {
-    name: 'getBoardState',
-    description: 'Get the current state of all objects on the board. Call this first when you need to reference existing objects by ID or understand the current layout.',
+    name: "resizeObject",
+    description: "Resize an existing object",
     input_schema: {
-      type: 'object',
+      type: "object",
+      properties: {
+        objectId: { type: "string" },
+        width:    { type: "number" },
+        height:   { type: "number" }
+      },
+      required: ["objectId", "width", "height"]
+    }
+  },
+  {
+    name: "updateStickyNoteText",
+    description: "Change the text content of a sticky note",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectId: { type: "string" },
+        newText:  { type: "string" }
+      },
+      required: ["objectId", "newText"]
+    }
+  },
+  {
+    name: "updateTextBoxContent",
+    description: "Change the text content of a standalone text box",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectId: { type: "string" },
+        newText:  { type: "string" }
+      },
+      required: ["objectId", "newText"]
+    }
+  },
+  {
+    name: "changeColor",
+    description: "Change the color of an existing object",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectId: { type: "string" },
+        color:    { type: "string" }
+      },
+      required: ["objectId", "color"]
+    }
+  },
+  {
+    name: "getBoardState",
+    description: "Returns current board state — already included in your context, no need to call this",
+    input_schema: {
+      type: "object",
       properties: {},
-      required: [],
-    },
-  },
+      required: []
+    }
+  }
 ]

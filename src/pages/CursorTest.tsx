@@ -6,9 +6,10 @@
  * real-time sync, presence, and multi-user cursor tracking.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { supabase } from '../lib/supabase'
+import type Konva from 'konva'
+
 import { BoardStage } from '../components/canvas/BoardStage'
 import { Connector } from '../components/canvas/Connector'
 import { Frame } from '../components/canvas/Frame'
@@ -19,16 +20,97 @@ import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
 import { PresenceBar } from '../components/presence/PresenceBar'
+import { AICommandInput } from '../components/ai/AICommandInput'
+import { useAuth } from '../contexts/AuthContext'
 import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
 import { useAIAgent } from '../hooks/useAIAgent'
-import { AICommandInput } from '../components/ai/AICommandInput'
-import type { BoardObject, ConnectorData, FrameData, StickyNoteData, RectangleData, CircleData, LineData, TextData } from '../lib/database.types'
-import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import type {
+  BoardObject,
+  ConnectorData,
+  FrameData,
+  StickyNoteData,
+  RectangleData,
+  CircleData,
+  LineData,
+  TextData,
+} from '../lib/database.types'
+
 import { LoginPage } from './LoginPage'
-import type Konva from 'konva'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const STICKY_NOTE_COLORS = ['#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFA07A', '#F7DC6F'] as const
+const SHAPE_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9'] as const
+const DUPLICATE_OFFSET = 20
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface CursorTestInnerProps {
+  boardId: string
+  userId: string
+  displayName: string
+  avatarUrl: string | null
+  signOut: () => Promise<void>
+}
+
+interface TextEditOverlayContentProps {
+  editingId: string
+  stickyNotes: (BoardObject & { type: 'sticky_note'; data: StickyNoteData })[]
+  textElements: (BoardObject & { type: 'text'; data: TextData })[]
+  stageTransform: { x: number; y: number; scale: number }
+  onSave: (newText: string) => void
+  onClose: () => void
+}
+
+function TextEditOverlayContent({
+  editingId,
+  stickyNotes,
+  textElements,
+  stageTransform,
+  onSave,
+  onClose,
+}: TextEditOverlayContentProps): ReactNode | null {
+  const note = stickyNotes.find(n => n.id === editingId)
+  const textElement = textElements.find(t => t.id === editingId)
+  const target = note ?? textElement
+  if (!target) return null
+
+  const screenX = target.x * stageTransform.scale + stageTransform.x
+  const screenY = target.y * stageTransform.scale + stageTransform.y
+  const screenW = target.width * stageTransform.scale
+  const screenH = (note ? target.height : Math.max(target.height, 40)) * stageTransform.scale
+  const color = note ? note.data.color : 'transparent'
+  const fontSize = note ? 14 : (textElement?.data.fontSize ?? 16)
+  const padding = note ? 8 : 0
+
+  return (
+    <TextEditOverlay
+      text={target.data.text}
+      x={screenX}
+      y={screenY}
+      width={screenW}
+      height={screenH}
+      color={color}
+      scale={stageTransform.scale}
+      fontSize={fontSize}
+      padding={padding}
+      onSave={onSave}
+      onClose={onClose}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main Page (Auth Shell)
+// ---------------------------------------------------------------------------
 
 export function CursorTest({ boardId }: { boardId: string }) {
   const { user, displayName, avatarUrl, signOut, isLoading } = useAuth()
@@ -45,18 +127,26 @@ export function CursorTest({ boardId }: { boardId: string }) {
     return <LoginPage />
   }
 
-  return <CursorTestInner boardId={boardId} userId={user.id} displayName={displayName} avatarUrl={avatarUrl} signOut={signOut} />
+  return (
+    <CursorTestInner
+      boardId={boardId}
+      userId={user.id}
+      displayName={displayName}
+      avatarUrl={avatarUrl}
+      signOut={signOut}
+    />
+  )
 }
 
-function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
-  boardId: string
-  userId: string
-  displayName: string
-  avatarUrl: string | null
-  signOut: () => Promise<void>
-}) {
+// ---------------------------------------------------------------------------
+// Board Canvas (Inner Content)
+// ---------------------------------------------------------------------------
+
+function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: CursorTestInnerProps) {
   const currentUser = { id: userId, name: displayName }
   const navigate = useNavigate()
+
+  // --- Local UI state ---
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [showShare, setShowShare] = useState(false)
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
@@ -65,17 +155,20 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
   const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
 
+  // --- Fetch invite code for sharing ---
   useEffect(() => {
-    supabase
-      .from('boards')
-      .select('invite_code')
-      .eq('id', boardId)
-      .single()
-      .then(({ data }) => {
-        if (data) setInviteCode(data.invite_code)
-      })
+    const fetchInvite = async () => {
+      const { data } = await supabase
+        .from('boards')
+        .select('invite_code')
+        .eq('id', boardId)
+        .single()
+      if (data) setInviteCode(data.invite_code)
+    }
+    void fetchInvite()
   }, [boardId])
 
+  // --- Real-time sync hooks ---
   const { onlineUsers } = usePresence({
     boardId: boardId,
     userId,
@@ -89,13 +182,21 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
     userName: currentUser.name,
   })
 
-  const { objects, createObject, updateObject, deleteObject, isLoading, error } = useRealtimeSync({
+  const {
+    objects,
+    createObject,
+    updateObject,
+    deleteObject,
+    isLoading,
+    error,
+  } = useRealtimeSync({
     boardId: boardId,
     userId: currentUser.id,
   })
 
   const { isSelected, selectObject, clearSelection, selectedIds, selectMultiple } = useSelection()
 
+  // --- Refs (for transformer and create handlers) ---
   const objectsRef = useRef(objects)
   objectsRef.current = objects
 
@@ -131,16 +232,16 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
 
   const handleDuplicate = useCallback(() => {
     if (selectedIds.size === 0) return
-    const OFFSET = 20
     let zOffset = 0
     selectedIds.forEach(id => {
-      const obj = objects.find(o => o.id === id)
-      if (!obj) return
-      const { id: _id, created_at: _ca, updated_at: _ua, created_by: _cb, ...rest } = obj
-      createObject({
+      const source = objects.find(o => o.id === id)
+      if (!source) return
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentionally omitting for createObject
+      const { id: _omit, created_at: _omit2, updated_at: _omit3, created_by: _omit4, ...rest } = source
+      void createObject({
         ...rest,
-        x: obj.x + OFFSET,
-        y: obj.y + OFFSET,
+        x: source.x + DUPLICATE_OFFSET,
+        y: source.y + DUPLICATE_OFFSET,
         z_index: objects.length + zOffset++,
       })
     })
@@ -182,10 +283,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
     selectMultiple(selected.map(o => o.id))  // always call — empty array clears selection
   }, [objects, selectMultiple])
 
-  // Create a sticky note at current cursor position
+  // --- Object creation handlers ---
   const handleCreateStickyNote = useCallback(async () => {
-    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#95E1D3', '#FFA07A', '#F7DC6F']
-    const randomColor = colors[Math.floor(Math.random() * colors.length)]!
+    const randomColor = STICKY_NOTE_COLORS[Math.floor(Math.random() * STICKY_NOTE_COLORS.length)] ?? '#FFD700'
 
     await createObject({
       board_id: boardId,
@@ -201,12 +301,10 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
         color: randomColor,
       },
     })
-  }, [createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length])
 
-  // Create a rectangle at current cursor position
   const handleCreateRectangle = useCallback(async () => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9']
-    const randomFill = colors[Math.floor(Math.random() * colors.length)]!
+    const randomFill = SHAPE_COLORS[Math.floor(Math.random() * SHAPE_COLORS.length)] ?? '#FF6B6B'
 
     await createObject({
       board_id: boardId,
@@ -223,12 +321,10 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 2,
       },
     })
-  }, [createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length])
 
-  // Create a circle at current cursor position
   const handleCreateCircle = useCallback(async () => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9']
-    const randomFill = colors[Math.floor(Math.random() * colors.length)]!
+    const randomFill = SHAPE_COLORS[Math.floor(Math.random() * SHAPE_COLORS.length)] ?? '#4ECDC4'
 
     await createObject({
       board_id: boardId,
@@ -246,9 +342,8 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 2,
       },
     })
-  }, [createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length])
 
-  // Create a line at current cursor position
   const handleCreateLine = useCallback(async () => {
     await createObject({
       board_id: boardId,
@@ -265,7 +360,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
         strokeWidth: 4,
       },
     })
-  }, [createObject, cursorPos, objects.length])
+  }, [boardId, createObject, cursorPos, objects.length])
 
   const handleCreateText = useCallback(async () => {
     await createObject({
@@ -279,32 +374,33 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
       z_index: objectsRef.current.length,
       data: { text: 'New text', fontSize: 18, color: '#000000' } satisfies TextData,
     })
-  }, [createObject, cursorPos])
+  }, [boardId, createObject, cursorPos])
 
-  // Filter sticky notes from all objects
-  const stickyNotes = objects.filter(
-    (obj): obj is BoardObject & { type: 'sticky_note'; data: StickyNoteData } =>
-      obj.type === 'sticky_note'
-  )
-
-  const shapes = objects.filter(
-    (obj): obj is BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData } =>
-      obj.type === 'rectangle' || obj.type === 'circle' || obj.type === 'line'
-  )
-
-  const connectors = objects.filter(
-    (obj): obj is BoardObject & { type: 'connector'; data: ConnectorData } =>
-      obj.type === 'connector'
-  )
-
-  const textElements = objects.filter(
-    (obj): obj is BoardObject & { type: 'text'; data: TextData } =>
-      obj.type === 'text'
-  )
-
-  const frames = objects.filter(
-    (obj): obj is BoardObject & { type: 'frame'; data: FrameData } =>
-      obj.type === 'frame'
+  // --- Filtered object lists (by type for rendering) ---
+  const { stickyNotes, shapes, connectors, textElements, frames } = useMemo(
+    () => ({
+      stickyNotes: objects.filter(
+        (obj): obj is BoardObject & { type: 'sticky_note'; data: StickyNoteData } =>
+          obj.type === 'sticky_note'
+      ),
+      shapes: objects.filter(
+        (obj): obj is BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData } =>
+          obj.type === 'rectangle' || obj.type === 'circle' || obj.type === 'line'
+      ),
+      connectors: objects.filter(
+        (obj): obj is BoardObject & { type: 'connector'; data: ConnectorData } =>
+          obj.type === 'connector'
+      ),
+      textElements: objects.filter(
+        (obj): obj is BoardObject & { type: 'text'; data: TextData } =>
+          obj.type === 'text'
+      ),
+      frames: objects.filter(
+        (obj): obj is BoardObject & { type: 'frame'; data: FrameData } =>
+          obj.type === 'frame'
+      ),
+    }),
+    [objects]
   )
 
   const handleCreateFrame = useCallback(async () => {
@@ -319,7 +415,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
       z_index: -(frames.length + 1),  // negative so frames stay behind all regular objects
       data: { title: 'New Frame', backgroundColor: 'rgba(240,240,240,0.5)' } satisfies FrameData,
     })
-  }, [createObject, cursorPos, frames.length])
+  }, [boardId, createObject, cursorPos, frames.length])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
@@ -337,13 +433,15 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
     setConnectorMode(null)
   }, [connectorMode, createObject])
 
-  const { sendCommand, isLoading: aiIsLoading, error: aiError } = useAIAgent({
+  // --- AI agent ---
+  const { executeCommand, isProcessing: aiIsProcessing, lastResult: aiLastResult, error: aiError } = useAIAgent({
     boardId,
     objects,
     createObject,
     updateObject,
   })
 
+  // --- Object interaction handlers ---
   const handleObjectClick = useCallback((id: string, multiSelect = false) => {
     if (connectorMode) {
       if (id !== connectorMode.fromId) {
@@ -364,15 +462,15 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
     if (!editingId) return
     const note = stickyNotes.find(n => n.id === editingId)
     if (note) {
-      updateObject(editingId, { data: { text: newText, color: note.data.color } as StickyNoteData })
+      void updateObject(editingId, { data: { text: newText, color: note.data.color } as StickyNoteData })
       setEditingId(null)
       return
     }
-    const textEl = textElements.find(t => t.id === editingId)
-    if (textEl) {
-      updateObject(editingId, { data: { ...textEl.data, text: newText } as TextData })
+    const textElement = textElements.find(t => t.id === editingId)
+    if (textElement) {
+      void updateObject(editingId, { data: { ...textElement.data, text: newText } as TextData })
     }
-    setEditingId(null)  // always close, even if object was deleted remotely
+    setEditingId(null) // always close, even if object was deleted remotely
   }, [editingId, stickyNotes, textElements, updateObject])
 
   return (
@@ -663,35 +761,17 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
       </BoardStage>
       </div>
 
-      {/* Text edit overlay */}
-      {editingId && (() => {
-        const note = stickyNotes.find(n => n.id === editingId)
-        const textEl = textElements.find(t => t.id === editingId)
-        const obj = note ?? textEl
-        if (!obj) return null
-        const screenX = obj.x * stageTransform.scale + stageTransform.x
-        const screenY = obj.y * stageTransform.scale + stageTransform.y
-        const screenW = obj.width * stageTransform.scale
-        const screenH = (note ? obj.height : Math.max(obj.height, 40)) * stageTransform.scale
-        const color = note ? note.data.color : 'transparent'
-        const fontSize = note ? 14 : (textEl?.data.fontSize ?? 16)
-        const padding = note ? 8 : 0
-        return (
-          <TextEditOverlay
-            text={obj.data.text}
-            x={screenX}
-            y={screenY}
-            width={screenW}
-            height={screenH}
-            color={color}
-            scale={stageTransform.scale}
-            fontSize={fontSize}
-            padding={padding}
-            onSave={handleSaveEdit}
-            onClose={() => setEditingId(null)}
-          />
-        )
-      })()}
+      {/* Text edit overlay (sticky note or text element) */}
+      {editingId && (
+        <TextEditOverlayContent
+          editingId={editingId}
+          stickyNotes={stickyNotes}
+          textElements={textElements}
+          stageTransform={stageTransform}
+          onSave={handleSaveEdit}
+          onClose={() => setEditingId(null)}
+        />
+      )}
 
       {/* Latency Warning */}
       {!isConnected && (
@@ -701,9 +781,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: {
       )}
 
       <AICommandInput
-        onSubmit={sendCommand}
-        isProcessing={aiIsLoading}
-        lastResult={null}
+        onSubmit={executeCommand}
+        isProcessing={aiIsProcessing}
+        lastResult={aiLastResult}
         error={aiError}
       />
     </div>
