@@ -43,5 +43,6 @@ storybook-static
 playwright/.auth/
 
 # Claude Code
+.claude/
 CLAUDE.md
 proj_claude.md
