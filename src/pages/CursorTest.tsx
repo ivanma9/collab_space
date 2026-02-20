@@ -655,6 +655,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
             <ConnectionHandles
               key={`handles-${id}`}
               object={obj}
+              node={nodeRefs.current.get(id)}
               onStartConnect={handleStartConnect}
             />
           )
