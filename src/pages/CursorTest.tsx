@@ -11,12 +11,14 @@ import { useNavigate } from '@tanstack/react-router'
 import type Konva from 'konva'
 
 import { BoardStage } from '../components/canvas/BoardStage'
+import { ConnectionHandles } from '../components/canvas/ConnectionHandles'
 import { Connector } from '../components/canvas/Connector'
 import { Frame } from '../components/canvas/Frame'
 import { RemoteCursor } from '../components/canvas/RemoteCursor'
 import { Shape } from '../components/canvas/Shape'
 import { StickyNote } from '../components/canvas/StickyNote'
 import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
+import { TempConnectorLine } from '../components/canvas/TempConnectorLine'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
 import { AICommandInput } from '../components/ai/AICommandInput'
@@ -151,8 +153,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
   const [transformVersion, setTransformVersion] = useState(0)
-  const [connectorMode, setConnectorMode] = useState<{ fromId: string } | null>(null)
-  const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame' | 'connector'>('select')
+  const [connectorMode, setConnectorMode] = useState<{ fromId: string; fromPoint: { x: number; y: number } } | null>(null)
+  const [connectingCursorPos, setConnectingCursorPos] = useState({ x: 0, y: 0 })
+  const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame'>('select')
   const [activeColor, setActiveColor] = useState<string>("#FFD700")
 
   // --- Fetch invite code for sharing ---
@@ -290,9 +293,13 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     if (color) setActiveColor(color)
   }, [selectedIds, objects])
 
-  // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D
+  // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D; Escape cancels connecting
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && connectorMode) {
+        setConnectorMode(null)
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         e.preventDefault()
@@ -307,13 +314,16 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIds, deleteObject, clearSelection, handleDuplicate])
+  }, [selectedIds, deleteObject, clearSelection, handleDuplicate, connectorMode])
 
   // Broadcast cursor position whenever it changes
   const handleCursorMove = useCallback((x: number, y: number) => {
     setCursorPos({ x, y })
     broadcastCursor(x, y)
-  }, [broadcastCursor])
+    if (connectorMode) {
+      setConnectingCursorPos({ x, y })
+    }
+  }, [broadcastCursor, connectorMode])
 
   // Handle marquee (drag-to-select) selection
   const handleMarqueeSelect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
@@ -470,6 +480,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     setConnectorMode(null)
   }, [connectorMode, createObject])
 
+  const handleStartConnect = useCallback((objectId: string, point: { x: number; y: number }) => {
+    setConnectorMode({ fromId: objectId, fromPoint: point })
+    setConnectingCursorPos(point)
+    clearSelection()
+  }, [clearSelection])
+
   // --- AI agent ---
   const { executeCommand, isProcessing: aiIsProcessing, lastResult: aiLastResult, error: aiError } = useAIAgent({
     boardId,
@@ -480,18 +496,6 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
 
   // --- Toolbar tool selection ---
   const handleToolSelect = useCallback((tool: typeof activeTool) => {
-    if (tool === 'connector') {
-      if (connectorMode) {
-        setConnectorMode(null)
-        setActiveTool('select')
-      } else if (selectedIds.size === 1) {
-        const fromId = Array.from(selectedIds)[0]!
-        setConnectorMode({ fromId })
-        clearSelection()
-        setActiveTool('connector')
-      }
-      return
-    }
     setConnectorMode(null)
     setActiveTool(tool)
 
@@ -510,7 +514,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       // Reset to select after creating
       setActiveTool('select')
     }
-  }, [connectorMode, selectedIds, clearSelection, handleCreateStickyNote, handleCreateRectangle, handleCreateCircle, handleCreateLine, handleCreateText, handleCreateFrame])
+  }, [handleCreateStickyNote, handleCreateRectangle, handleCreateCircle, handleCreateLine, handleCreateText, handleCreateFrame])
 
   const handleDelete = useCallback(() => {
     selectedIds.forEach((id) => { deleteObject(id) })
@@ -570,7 +574,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         data-transform={JSON.stringify(stageTransform)}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       >
-        <BoardStage onCursorMove={handleCursorMove} onStageClick={clearSelection} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
+        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
         {/* Render frames first (behind everything) */}
         {frames.map((frame) => (
           <Frame
@@ -643,6 +647,27 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           onTransformEnd={handleTransformEnd}
         />
 
+        {/* Connection handle dots on selected objects */}
+        {!connectorMode && Array.from(selectedIds).map(id => {
+          const obj = objects.find(o => o.id === id)
+          if (!obj || obj.type === 'connector') return null
+          return (
+            <ConnectionHandles
+              key={`handles-${id}`}
+              object={obj}
+              onStartConnect={handleStartConnect}
+            />
+          )
+        })}
+
+        {/* Temp connector line while connecting */}
+        {connectorMode && (
+          <TempConnectorLine
+            fromPoint={connectorMode.fromPoint}
+            toPoint={connectingCursorPos}
+          />
+        )}
+
         {/* Remote cursors */}
         {Array.from(cursors.values()).map((cursor) => (
           <RemoteCursor key={cursor.userId} cursor={cursor} />
@@ -688,7 +713,6 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         canDelete={selectedIds.size > 0}
         deleteCount={selectedIds.size}
         isLoading={isLoading}
-        connectorMode={!!connectorMode}
         activeColor={activeColor}
         onColorChange={handleColorChange}
         hasSelection={selectedIds.size > 0}

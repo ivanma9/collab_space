@@ -12,7 +12,6 @@ type Tool =
 	| "line"
 	| "text"
 	| "frame"
-	| "connector"
 
 interface BoardToolbarProps {
 	activeTool: Tool
@@ -21,7 +20,6 @@ interface BoardToolbarProps {
 	canDelete: boolean
 	deleteCount: number
 	isLoading: boolean
-	connectorMode: boolean
 	activeColor: string
 	onColorChange: (color: string) => void
 	hasSelection: boolean
@@ -96,16 +94,6 @@ function FrameIcon() {
 			<rect x="3" y="3" width="18" height="18" rx="0" />
 			<line x1="3" y1="9" x2="21" y2="9" />
 			<line x1="9" y1="3" x2="9" y2="9" />
-		</svg>
-	)
-}
-
-function ConnectorIcon() {
-	return (
-		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-			<path d="M18 8L22 12L18 16" />
-			<path d="M2 12H22" />
-			<circle cx="2" cy="12" r="2" fill="currentColor" />
 		</svg>
 	)
 }
@@ -373,7 +361,6 @@ export function BoardToolbar({
 	canDelete,
 	deleteCount,
 	isLoading,
-	connectorMode,
 	activeColor,
 	onColorChange,
 	hasSelection: _hasSelection,
@@ -392,7 +379,7 @@ export function BoardToolbar({
 				<ToolButton
 					icon={<CursorIcon />}
 					label="Select (V)"
-					isActive={activeTool === "select" && !connectorMode}
+					isActive={activeTool === "select"}
 					onClick={() => handleToolClick("select")}
 				/>
 
@@ -433,18 +420,6 @@ export function BoardToolbar({
 					onClick={() => handleToolClick("frame")}
 					disabled={isLoading}
 					testId="frame-tool"
-				/>
-
-				<Divider />
-
-				{/* Connector */}
-				<ToolButton
-					icon={<ConnectorIcon />}
-					label="Connector (C)"
-					isActive={connectorMode}
-					onClick={() => handleToolClick("connector")}
-					disabled={isLoading}
-					testId="connector-tool"
 				/>
 
 				<Divider />
