@@ -282,7 +282,16 @@ function Divider() {
 // Color Button
 // ---------------------------------------------------------------------------
 
-const PALETTE = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#A29BFE', '#FFA07A', '#DFE6E9'] as const
+const PALETTE = [
+	"#FFD700",
+	"#FF6B6B",
+	"#4ECDC4",
+	"#45B7D1",
+	"#96CEB4",
+	"#A29BFE",
+	"#FFA07A",
+	"#DFE6E9",
+] as const
 
 function ColorButton({
 	activeColor,
@@ -340,8 +349,8 @@ function ColorButton({
 							className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none"
 							style={{
 								background: color,
-								borderColor: color === activeColor ? '#4A90E2' : 'transparent',
-								boxShadow: color === activeColor ? '0 0 0 2px #4A90E2' : undefined,
+								borderColor: color === activeColor ? "#4A90E2" : "transparent",
+								boxShadow: color === activeColor ? "0 0 0 2px #4A90E2" : undefined,
 							}}
 							title={color}
 							data-testid={`color-swatch-${color}`}
