@@ -486,6 +486,31 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     clearSelection()
   }, [clearSelection])
 
+  // Drag-to-connect: complete connection on mouseup over a target object
+  const connectingCursorRef = useRef(connectingCursorPos)
+  connectingCursorRef.current = connectingCursorPos
+  const connectorModeRef = useRef(connectorMode)
+  connectorModeRef.current = connectorMode
+
+  useEffect(() => {
+    if (!connectorMode) return
+    const handleMouseUp = () => {
+      const mode = connectorModeRef.current
+      if (!mode) return
+      const pos = connectingCursorRef.current
+      const target = objectsRef.current.find(obj => {
+        if (obj.id === mode.fromId || obj.type === 'connector') return false
+        return pos.x >= obj.x && pos.x <= obj.x + obj.width &&
+               pos.y >= obj.y && pos.y <= obj.y + obj.height
+      })
+      if (target) {
+        handleCreateConnector(target.id)
+      }
+    }
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => window.removeEventListener('mouseup', handleMouseUp)
+  }, [connectorMode, handleCreateConnector])
+
   // --- AI agent ---
   const { executeCommand, isProcessing: aiIsProcessing, lastResult: aiLastResult, error: aiError } = useAIAgent({
     boardId,

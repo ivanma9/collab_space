@@ -125,7 +125,7 @@ export function ConnectionHandles({
 						if (stage) stage.container().style.cursor = "default"
 						circle.getLayer()?.batchDraw()
 					}}
-					onClick={(e) => {
+					onMouseDown={(e) => {
 						e.cancelBubble = true
 						// Compute current position from node if available
 						let cx: number, cy: number, cw: number, ch: number
