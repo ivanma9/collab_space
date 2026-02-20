@@ -268,6 +268,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       } else if (obj.type === "frame") {
         void updateObject(id, { data: { ...obj.data, backgroundColor: color } })
       }
+      // connector: no color field in ConnectorData — skip intentionally
     })
   }, [selectedIds, objects, updateObject])
 
