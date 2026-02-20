@@ -22,6 +22,9 @@ interface BoardToolbarProps {
 	deleteCount: number
 	isLoading: boolean
 	connectorMode: boolean
+	activeColor: string
+	onColorChange: (color: string) => void
+	hasSelection: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +279,81 @@ function Divider() {
 }
 
 // ---------------------------------------------------------------------------
+// Color Button
+// ---------------------------------------------------------------------------
+
+const PALETTE = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#A29BFE', '#FFA07A', '#DFE6E9'] as const
+
+function ColorButton({
+	activeColor,
+	onColorChange,
+}: {
+	activeColor: string
+	onColorChange: (color: string) => void
+}) {
+	const [open, setOpen] = useState(false)
+	const ref = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		if (!open) return
+		const handler = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+		}
+		document.addEventListener("mousedown", handler)
+		return () => document.removeEventListener("mousedown", handler)
+	}, [open])
+
+	return (
+		<div ref={ref} className="relative group">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				className="relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+				title="Color"
+				data-testid="color-button"
+			>
+				<span
+					className="w-5 h-5 rounded-full border-2 border-white shadow-sm ring-1 ring-gray-300"
+					style={{ background: activeColor }}
+				/>
+			</button>
+
+			{/* Tooltip */}
+			{!open && (
+				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
+					Color
+				</div>
+			)}
+
+			{/* Swatch popover */}
+			{open && (
+				<div
+					className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-2 flex gap-1.5"
+					data-testid="color-popover"
+				>
+					{PALETTE.map((color) => (
+						<button
+							key={color}
+							onClick={() => {
+								onColorChange(color)
+								setOpen(false)
+							}}
+							className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none"
+							style={{
+								background: color,
+								borderColor: color === activeColor ? '#4A90E2' : 'transparent',
+								boxShadow: color === activeColor ? '0 0 0 2px #4A90E2' : undefined,
+							}}
+							title={color}
+							data-testid={`color-swatch-${color}`}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
 // Main Toolbar
 // ---------------------------------------------------------------------------
 
@@ -287,6 +365,9 @@ export function BoardToolbar({
 	deleteCount,
 	isLoading,
 	connectorMode,
+	activeColor,
+	onColorChange,
+	hasSelection: _hasSelection,
 }: BoardToolbarProps) {
 	const handleToolClick = useCallback(
 		(tool: Tool) => {
@@ -358,7 +439,8 @@ export function BoardToolbar({
 				/>
 
 				<Divider />
-
+				<ColorButton activeColor={activeColor} onColorChange={onColorChange} />
+				<Divider />
 				{/* Delete */}
 				<ToolButton
 					icon={<TrashIcon />}
