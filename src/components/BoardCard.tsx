@@ -102,7 +102,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
         ctx.lineWidth = Math.max(0.5, d.strokeWidth * scale)
         ctx.beginPath()
         ctx.moveTo(tx(obj.x + pts[0]!), ty(obj.y + pts[1]!))
-        for (let i = 2; i < pts.length; i += 2) {
+        for (let i = 2; i + 1 < pts.length; i += 2) {
           ctx.lineTo(tx(obj.x + pts[i]!), ty(obj.y + pts[i + 1]!))
         }
         ctx.stroke()
@@ -167,7 +167,7 @@ export function BoardCard({ id: _id, name, inviteCode, objects, onClick }: Board
         width={PREVIEW_W}
         height={PREVIEW_H}
         className="w-full block"
-        style={{ height: PREVIEW_H }}
+        style={{ aspectRatio: `${PREVIEW_W} / ${PREVIEW_H}` }}
       />
       <div className="px-4 py-3 border-t border-gray-100">
         <p className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors truncate">
