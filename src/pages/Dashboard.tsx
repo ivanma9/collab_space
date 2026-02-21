@@ -3,16 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
-import type { BoardObject } from '../lib/database.types'
+import type { BoardObject, Board } from '../lib/database.types'
 import { BoardCard } from '../components/BoardCard'
-
-type Board = {
-  id: string
-  name: string
-  invite_code: string
-  created_by: string
-  created_at: string
-}
 
 export function Dashboard() {
   const { user, displayName, signOut, isLoading } = useAuth()
@@ -61,14 +53,13 @@ function DashboardInner({ userId, displayName, signOut }: {
             .select('*')
             .in('board_id', ids)
             .limit(500)
-            .then(({ data }) => {
+            .then(({ data, error: objError }) => {
+              if (objError) { setError(objError.message); return }
               if (!data) return
               const grouped: Record<string, BoardObject[]> = {}
               for (const obj of data) {
-                const bid = obj.board_id
-                if (!bid) continue
-                if (!grouped[bid]) grouped[bid] = []
-                grouped[bid].push(obj as unknown as BoardObject)
+                if (!grouped[obj.board_id]) grouped[obj.board_id] = []
+                grouped[obj.board_id]!.push({ ...obj, data: obj.data } as unknown as BoardObject)
               }
               setBoardObjects(grouped)
             })
