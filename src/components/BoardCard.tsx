@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { BoardObject, StickyNoteData, RectangleData, CircleData, LineData, FrameData, TextData } from '../lib/database.types'
+import type { BoardObject } from '../lib/database.types'
 
 interface BoardCardProps {
   id: string
@@ -63,7 +63,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
     ctx.save()
 
     if (obj.type === 'sticky_note') {
-      const d = obj.data as StickyNoteData
+      const d = obj.data
       ctx.fillStyle = d.color
       ctx.shadowColor = 'rgba(0,0,0,0.2)'
       ctx.shadowBlur = 4
@@ -77,7 +77,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       ctx.fillText(d.text, x + 3, y + 10 * scale, w - 6)
 
     } else if (obj.type === 'rectangle') {
-      const d = obj.data as RectangleData
+      const d = obj.data
       ctx.fillStyle = d.fillColor
       ctx.strokeStyle = d.strokeColor
       ctx.lineWidth = Math.max(0.5, d.strokeWidth * scale)
@@ -85,7 +85,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       ctx.strokeRect(x, y, w, h)
 
     } else if (obj.type === 'circle') {
-      const d = obj.data as CircleData
+      const d = obj.data
       ctx.fillStyle = d.fillColor
       ctx.strokeStyle = d.strokeColor
       ctx.lineWidth = Math.max(0.5, d.strokeWidth * scale)
@@ -95,7 +95,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       ctx.stroke()
 
     } else if (obj.type === 'line') {
-      const d = obj.data as LineData
+      const d = obj.data
       const pts = d.points
       if (pts.length >= 4) {
         ctx.strokeStyle = d.strokeColor
@@ -109,7 +109,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       }
 
     } else if (obj.type === 'frame') {
-      const d = obj.data as FrameData
+      const d = obj.data
       ctx.fillStyle = d.backgroundColor ?? '#ffffff'
       ctx.strokeStyle = '#94a3b8'
       ctx.lineWidth = 1
@@ -118,11 +118,11 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       if (d.title) {
         ctx.fillStyle = '#475569'
         ctx.font = `bold ${Math.max(6, 8 * scale)}px Arial`
-        ctx.fillText(d.title, x + 3, y - 4, w)
+        ctx.fillText(d.title, x + 3, y + 10, w)
       }
 
     } else if (obj.type === 'text') {
-      const d = obj.data as TextData
+      const d = obj.data
       ctx.fillStyle = d.color
       ctx.font = `${Math.max(7, (d.fontSize ?? 14) * scale)}px ${d.fontFamily ?? 'Arial'}`
       ctx.fillText(d.text, x, y + 12 * scale, w)
