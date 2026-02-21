@@ -3,6 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { LoginPage } from './LoginPage'
+import type { BoardObject } from '../lib/database.types'
+import { BoardCard } from '../components/BoardCard'
 
 type Board = {
   id: string
@@ -35,6 +37,7 @@ function DashboardInner({ userId, displayName, signOut }: {
 }) {
   const navigate = useNavigate()
   const [boards, setBoards] = useState<Board[]>([])
+  const [boardObjects, setBoardObjects] = useState<Record<string, BoardObject[]>>({})
   const [newBoardName, setNewBoardName] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -51,6 +54,25 @@ function DashboardInner({ userId, displayName, signOut }: {
           .map((row: any) => row.boards)
           .filter(Boolean) as Board[]
         setBoards(boardList)
+        if (boardList.length > 0) {
+          const ids = boardList.map(b => b.id)
+          supabase
+            .from('board_objects')
+            .select('*')
+            .in('board_id', ids)
+            .limit(500)
+            .then(({ data }) => {
+              if (!data) return
+              const grouped: Record<string, BoardObject[]> = {}
+              for (const obj of data) {
+                const bid = obj.board_id
+                if (!bid) continue
+                if (!grouped[bid]) grouped[bid] = []
+                grouped[bid].push(obj as unknown as BoardObject)
+              }
+              setBoardObjects(grouped)
+            })
+        }
       })
   }, [userId])
 
@@ -77,7 +99,7 @@ function DashboardInner({ userId, displayName, signOut }: {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-800">My Boards</h1>
@@ -137,31 +159,22 @@ function DashboardInner({ userId, displayName, signOut }: {
           </div>
         </div>
 
-        {/* Board List */}
-        <div className="space-y-3">
+        {/* Board Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {boards.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-8">
+            <p className="col-span-full text-gray-400 text-sm text-center py-8">
               No boards yet. Create one or join with a code.
             </p>
           ) : (
             boards.map(board => (
-              <button
+              <BoardCard
                 key={board.id}
+                id={board.id}
+                name={board.name}
+                inviteCode={board.invite_code}
+                objects={boardObjects[board.id] ?? []}
                 onClick={() => navigate({ to: '/board/$boardId', params: { boardId: board.id } })}
-                className="w-full bg-white rounded-xl shadow px-6 py-4 text-left hover:shadow-md transition group"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-800 group-hover:text-blue-600 transition">
-                      {board.name}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Code: <span className="font-mono">{board.invite_code}</span>
-                    </p>
-                  </div>
-                  <span className="text-gray-300 group-hover:text-blue-400 transition">→</span>
-                </div>
-              </button>
+              />
             ))
           )}
         </div>
