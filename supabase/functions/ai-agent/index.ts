@@ -1,7 +1,16 @@
 import Anthropic from "npm:@anthropic-ai/sdk"
+import { initLogger, wrapAnthropic } from "npm:braintrust"
 import { tools } from "./tools.ts"
 
-const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! })
+const logger = initLogger({
+  projectName: "CollabBoard Agent",
+  apiKey: Deno.env.get("BRAINTRUST_API_KEY"),
+  asyncFlush: false,
+})
+
+const anthropic = wrapAnthropic(
+  new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
+)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,7 +22,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const { command, boardState, boardId } = await req.json()
+  const { command, boardState, boardId, openArea } = await req.json()
 
   const boardContext = boardState.length === 0
     ? "The board is currently empty."
@@ -23,6 +32,14 @@ Deno.serve(async (req) => {
         (obj.data?.color ? ` color=${obj.data.color}` : "") +
         (obj.data?.title ? ` title="${obj.data.title}"` : "")
       ).join("\n")
+
+  const openAreaGuide = openArea
+    ? `\nOPEN AREA (USE BY DEFAULT):
+All operations — creation, moving, layout, and complex commands — MUST use this open area unless the user explicitly specifies a location or references a specific existing object by name/description.
+  Start at x=${openArea.x}, y=${openArea.y} — open space is approximately ${openArea.width}x${openArea.height}
+  Work rightward and downward from this point, using 20px padding between objects.
+Only place near existing objects if the user explicitly says so (e.g. "next to the SWOT frame", "below the red note").`
+    : ""
 
   const systemPrompt = `You are an AI assistant that controls a collaborative whiteboard.
 
@@ -34,7 +51,7 @@ COORDINATE SYSTEM:
 - Default shape size: 150x100
 - Default frame size: 800x600
 - Leave 20px padding between objects
-- For templates (SWOT, etc.), start at x=100, y=100 and work rightward/downward
+${openAreaGuide}
 
 CURRENT BOARD STATE:
 ${boardContext}
@@ -58,6 +75,8 @@ RULES:
   const toolCalls = response.content
     .filter((block) => block.type === "tool_use")
     .map((block: any) => ({ name: block.name, input: block.input }))
+
+  await logger.flush()
 
   return new Response(JSON.stringify({ toolCalls }), {
     headers: {

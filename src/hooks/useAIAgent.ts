@@ -2,6 +2,44 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { BoardObject } from '../lib/database.types'
 
+const PADDING = 40
+
+function findOpenArea(objects: BoardObject[]): { x: number; y: number; width: number; height: number } {
+  if (objects.length === 0) {
+    return { x: 100, y: 100, width: 2000, height: 2000 }
+  }
+
+  // Ignore connectors (they have 0,0 position and no real footprint)
+  const placed = objects.filter((o) => o.type !== 'connector')
+  if (placed.length === 0) {
+    return { x: 100, y: 100, width: 2000, height: 2000 }
+  }
+
+  // Compute bounding box of all existing objects
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const obj of placed) {
+    minX = Math.min(minX, obj.x)
+    minY = Math.min(minY, obj.y)
+    maxX = Math.max(maxX, obj.x + obj.width)
+    maxY = Math.max(maxY, obj.y + obj.height)
+  }
+
+  // Try placing to the right of existing content first
+  const rightX = maxX + PADDING
+  const rightArea = { x: rightX, y: minY, width: 2000, height: maxY - minY + 1000 }
+
+  // Check if right area has enough room (it always does on infinite canvas, but check for gaps)
+  // Also offer below as an alternative
+  const belowY = maxY + PADDING
+  const belowArea = { x: minX, y: belowY, width: maxX - minX + 1000, height: 2000 }
+
+  // Prefer right if the board is more tall than wide, below if more wide than tall
+  const boardWidth = maxX - minX
+  const boardHeight = maxY - minY
+
+  return boardHeight > boardWidth ? belowArea : rightArea
+}
+
 const STICKY_COLORS: Record<string, string> = {
   yellow: '#FFD700',
   pink: '#FF6B6B',
@@ -50,8 +88,9 @@ export function useAIAgent({ boardId, objects, createObject, updateObject }: Use
     }))
 
     try {
+      const openArea = findOpenArea(objects)
       const { data, error: fnError } = await supabase.functions.invoke('ai-agent', {
-        body: { command, boardState, boardId },
+        body: { command, boardState, boardId, openArea },
       })
       if (fnError) throw fnError
 
