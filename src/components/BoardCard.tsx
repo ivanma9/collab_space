@@ -55,6 +55,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
   const sorted = [...objects].sort((a, b) => a.z_index - b.z_index)
 
   for (const obj of sorted) {
+    if (obj.width <= 0 || obj.height <= 0) continue
     const x = tx(obj.x)
     const y = ty(obj.y)
     const w = obj.width * scale

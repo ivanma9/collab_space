@@ -6,6 +6,8 @@ import { LoginPage } from './LoginPage'
 import type { BoardObject, Board } from '../lib/database.types'
 import { BoardCard } from '../components/BoardCard'
 
+const EMPTY_OBJECTS: BoardObject[] = []
+
 export function Dashboard() {
   const { user, displayName, signOut, isLoading } = useAuth()
 
@@ -163,7 +165,7 @@ function DashboardInner({ userId, displayName, signOut }: {
                 id={board.id}
                 name={board.name}
                 inviteCode={board.invite_code}
-                objects={boardObjects[board.id] ?? []}
+                objects={boardObjects[board.id] ?? EMPTY_OBJECTS}
                 onClick={() => navigate({ to: '/board/$boardId', params: { boardId: board.id } })}
               />
             ))
