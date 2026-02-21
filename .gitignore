@@ -47,5 +47,6 @@ supabase/.temp/
 
 # Claude Code
 .claude/
+.claude.json
 CLAUDE.md
 proj_claude.md

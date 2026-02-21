@@ -35,8 +35,8 @@ export function AICommandInput({ onSubmit, isProcessing, lastResult, error }: AI
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 w-full max-w-xl px-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 px-3 py-2.5">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col-reverse">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0">
           <span className="text-lg select-none">✨</span>
           <input
             ref={inputRef}
@@ -59,7 +59,7 @@ export function AICommandInput({ onSubmit, isProcessing, lastResult, error }: AI
         </form>
 
         {showExamples && !isProcessing && (
-          <div className="border-t border-gray-100 px-3 py-2">
+          <div className="border-b border-gray-100 px-3 py-2">
             <p className="text-xs text-gray-400 mb-1.5 font-medium">Try:</p>
             <div className="flex flex-wrap gap-1">
               {EXAMPLES.map(ex => (
@@ -80,19 +80,19 @@ export function AICommandInput({ onSubmit, isProcessing, lastResult, error }: AI
         )}
 
         {isProcessing && (
-          <div className="border-t border-gray-100 px-3 py-2">
+          <div className="border-b border-gray-100 px-3 py-2">
             <p className="text-xs text-purple-600 animate-pulse">AI is working on your request...</p>
           </div>
         )}
 
         {lastResult && !isProcessing && (
-          <div className="border-t border-gray-100 px-3 py-2">
+          <div className="border-b border-gray-100 px-3 py-2">
             <p className="text-xs text-green-600">✓ {lastResult}</p>
           </div>
         )}
 
         {error && !isProcessing && (
-          <div className="border-t border-gray-100 px-3 py-2">
+          <div className="border-b border-gray-100 px-3 py-2">
             <p className="text-xs text-red-500">✗ {error}</p>
           </div>
         )}
