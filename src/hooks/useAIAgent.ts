@@ -4,7 +4,7 @@ import type { BoardObject } from '../lib/database.types'
 
 const PADDING = 40
 
-function findOpenArea(objects: BoardObject[]): { x: number; y: number; width: number; height: number } {
+export function findOpenArea(objects: BoardObject[]): { x: number; y: number; width: number; height: number } {
   if (objects.length === 0) {
     return { x: 100, y: 100, width: 2000, height: 2000 }
   }
@@ -40,7 +40,7 @@ function findOpenArea(objects: BoardObject[]): { x: number; y: number; width: nu
   return boardHeight > boardWidth ? belowArea : rightArea
 }
 
-const STICKY_COLORS: Record<string, string> = {
+export const STICKY_COLORS: Record<string, string> = {
   yellow: '#FFD700',
   pink: '#FF6B6B',
   blue: '#4ECDC4',
@@ -49,7 +49,7 @@ const STICKY_COLORS: Record<string, string> = {
   purple: '#9B59B6',
 }
 
-const SHAPE_COLORS: Record<string, string> = {
+export const SHAPE_COLORS: Record<string, string> = {
   red: '#FF6B6B',
   blue: '#4ECDC4',
   green: '#95E1D3',
