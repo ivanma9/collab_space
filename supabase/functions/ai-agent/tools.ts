@@ -149,31 +149,21 @@ export const tools = [
     }
   },
   {
-    name: "bulkCreateObjects",
-    description: "Create many objects at once in a grid layout. Use this when the user asks for more than 5 of the same type of object (e.g. 'make 100 sticky notes', 'create 3000 stickies'). Much more efficient than calling individual create tools repeatedly.",
+    name: "askClarification",
+    description: "Ask the user a clarifying question when their request is ambiguous. Provide 2-4 suggestion options that become clickable buttons in the UI.",
     input_schema: {
       type: "object",
       properties: {
-        objectType: { type: "string", enum: ["sticky_note", "shape", "frame", "text"], description: "Type of object to create" },
-        count: { type: "number", description: "Number of objects to create" },
-        startX: { type: "number", description: "X coordinate of the top-left of the grid" },
-        startY: { type: "number", description: "Y coordinate of the top-left of the grid" },
-        columns: { type: "number", description: "Number of columns in the grid layout" },
-        template: {
-          type: "object",
-          description: "Template for each created object",
-          properties: {
-            text: { type: "string", description: "Text content (supports {n} placeholder for 1-based index)" },
-            color: { type: "string", description: "Color name or hex" },
-            width: { type: "number" },
-            height: { type: "number" },
-            fontSize: { type: "number" },
-            shapeType: { type: "string", enum: ["rectangle", "circle", "line"] },
-            title: { type: "string", description: "For frames — supports {n} placeholder" },
-          }
+        question: { type: "string", description: "The clarifying question to ask the user" },
+        suggestions: {
+          type: "array",
+          items: { type: "string" },
+          description: "2-4 short suggestion options for the user to click",
+          minItems: 2,
+          maxItems: 4
         }
       },
-      required: ["objectType", "count", "startX", "startY", "columns", "template"]
+      required: ["question", "suggestions"]
     }
   }
 ]

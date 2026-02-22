@@ -21,7 +21,7 @@ import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
 import { TempConnectorLine } from '../components/canvas/TempConnectorLine'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
-import { AICommandInput } from '../components/ai/AICommandInput'
+import { AIPanel } from '../components/ai/AIPanel'
 import { BoardToolbar } from '../components/toolbar/BoardToolbar'
 import { BoardTopBar } from '../components/toolbar/BoardTopBar'
 import { useAuth } from '../contexts/AuthContext'
@@ -525,7 +525,8 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   }, [connectorMode, handleCreateConnector])
 
   // --- AI agent ---
-  const { executeCommand, isProcessing: aiIsProcessing, lastResult: aiLastResult, error: aiError } = useAIAgent({
+  const [aiPanelOpen, setAIPanelOpen] = useState(false)
+  const { messages: aiMessages, suggestions: aiSuggestions, isProcessing: aiIsProcessing, sendMessage: aiSendMessage, clearChat: aiClearChat } = useAIAgent({
     boardId,
     objects,
     createObject,
@@ -594,7 +595,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   return (
     <div
       className="relative w-screen h-screen overflow-hidden bg-gray-100"
-      style={{ cursor: connectorMode ? 'crosshair' : 'default' }}
+      style={{ cursor: connectorMode ? 'crosshair' : 'default', paddingRight: aiPanelOpen ? 350 : 0 }}
     >
       {/* Top Bar */}
       <BoardTopBar
@@ -737,13 +738,27 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
 
-      {/* AI Command Input */}
-      <AICommandInput
-        onSubmit={executeCommand}
+      {/* AI Panel */}
+      <AIPanel
+        isOpen={aiPanelOpen}
+        onClose={() => setAIPanelOpen(false)}
+        messages={aiMessages}
+        suggestions={aiSuggestions}
         isProcessing={aiIsProcessing}
-        lastResult={aiLastResult}
-        error={aiError}
+        onSendMessage={aiSendMessage}
+        onClearChat={aiClearChat}
       />
+
+      {/* AI Panel toggle button */}
+      {!aiPanelOpen && (
+        <button
+          onClick={() => setAIPanelOpen(true)}
+          className="fixed bottom-20 right-4 z-20 w-10 h-10 bg-purple-500 hover:bg-purple-600 text-white rounded-full shadow-lg flex items-center justify-center transition"
+          title="Open AI Agent"
+        >
+          &#10024;
+        </button>
+      )}
 
       {/* Bottom Toolbar */}
       <BoardToolbar
