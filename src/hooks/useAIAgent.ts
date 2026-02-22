@@ -204,6 +204,8 @@ export function useAIAgent({
 
 	async function executeToolCalls(toolCalls: AIToolCallResult[]) {
 		const currentObjects = objectsRef.current
+		// Map AI-generated IDs to real UUIDs so connectors resolve correctly
+		const idMap = new Map<string, string>()
 		let zOffset = 0
 		for (const call of toolCalls) {
 			try {
@@ -211,6 +213,7 @@ export function useAIAgent({
 					call,
 					currentObjects,
 					currentObjects.length + zOffset,
+					idMap,
 				)
 				zOffset++
 			} catch (err) {
@@ -223,9 +226,19 @@ export function useAIAgent({
 		call: AIToolCallResult,
 		currentObjects: BoardObject[],
 		zIndex: number,
+		idMap: Map<string, string>,
 	) {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const { input } = call as { input: any }
+
+		// Replace AI-generated IDs with real UUIDs (or generate one if missing)
+		const refKey = input.id
+		const realId = crypto.randomUUID()
+		if (refKey) idMap.set(refKey, realId)
+		input.id = realId
+		// Resolve connector references through the map
+		if (input.fromId) input.fromId = idMap.get(input.fromId) ?? input.fromId
+		if (input.toId) input.toId = idMap.get(input.toId) ?? input.toId
 
 		const mergeData = (objectId: string, patch: Record<string, any>) => {
 			const existing = currentObjects.find((o) => o.id === objectId)
