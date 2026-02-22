@@ -12,16 +12,17 @@ const anthropic = wrapAnthropic(
   new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
 )
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    })
+    return new Response(null, { headers: corsHeaders })
   }
 
+  try {
   const { command, boardState, boardId, openArea } = await req.json()
 
   const boardContext = boardState.length === 0
@@ -79,9 +80,13 @@ RULES:
   await logger.flush()
 
   return new Response(JSON.stringify({ toolCalls }), {
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
+    headers: { "Content-Type": "application/json", ...corsHeaders },
   })
+  } catch (err) {
+    console.error("ai-agent error:", err)
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    })
+  }
 })
