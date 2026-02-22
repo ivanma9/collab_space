@@ -220,6 +220,19 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     [selectedIds]
   )
 
+  // Force transformer to re-measure when selected objects change dimensions (e.g. text auto-resize)
+  const selectedDimensionKey = useMemo(() =>
+    Array.from(selectedIds).map(id => {
+      const obj = objects.find(o => o.id === id)
+      return obj ? `${obj.id}:${obj.width}:${obj.height}` : ''
+    }).join(','),
+    [objects, selectedIds]
+  )
+  useEffect(() => {
+    if (selectedIds.size > 0) setTransformVersion(v => v + 1)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDimensionKey])
+
   const handleTransformEnd = useCallback((id: string, updates: { x: number; y: number; scaleX: number; scaleY: number; rotation: number }) => {
     const obj = objectsRef.current.find(o => o.id === id)
     if (!obj) return

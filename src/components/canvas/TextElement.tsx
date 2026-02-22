@@ -16,6 +16,7 @@ interface TextElementProps {
 
 export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: TextElementProps) {
   const groupRef = useRef<Konva.Group>(null)
+  const textRef = useRef<Konva.Text>(null)
   const lastDrag = useRef(0)
 
   const onMountRef = useRef(onMount)
@@ -23,10 +24,29 @@ export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing,
   onMountRef.current = onMount
   onUnmountRef.current = onUnmount
 
+  const onUpdateRef = useRef(onUpdate)
+  onUpdateRef.current = onUpdate
+
   useEffect(() => {
     if (groupRef.current) onMountRef.current?.(object.id, groupRef.current)
     return () => onUnmountRef.current?.(object.id)
   }, [object.id])
+
+  // Auto-measure actual rendered height and persist it when text or width changes.
+  // This keeps object.height accurate so connection handles and the transformer
+  // always align with the visible text bounding box.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      const textNode = textRef.current
+      if (!textNode) return
+      const h = textNode.height()
+      if (h > 0 && Math.round(h) !== Math.round(object.height)) {
+        onUpdateRef.current(object.id, { height: h })
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [object.data.text, object.width, object.id])
 
   return (
     <Group
@@ -49,6 +69,7 @@ export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing,
       data-testid={`text-element-${object.id}`}
     >
       <Text
+        ref={textRef}
         text={isEditing ? '' : (object.data.text || 'Double-click to edit')}
         fontSize={object.data.fontSize || 16}
         fill={object.data.color || '#000000'}

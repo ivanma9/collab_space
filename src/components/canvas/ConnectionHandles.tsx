@@ -63,6 +63,11 @@ export function ConnectionHandles({
 		handleRefs.current[0]?.getLayer()?.batchDraw()
 	}, [node, object.x, object.y, object.width, object.height])
 
+	// Position handles immediately on mount and whenever dimensions change
+	useEffect(() => {
+		updatePositions()
+	}, [updatePositions])
+
 	// Track node movement for fluid handle positioning
 	useEffect(() => {
 		if (!node) return
