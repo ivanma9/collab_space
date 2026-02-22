@@ -147,5 +147,23 @@ export const tools = [
       properties: {},
       required: []
     }
+  },
+  {
+    name: "askClarification",
+    description: "Ask the user a clarifying question when their request is ambiguous. Provide 2-4 suggestion options that become clickable buttons in the UI.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "The clarifying question to ask the user" },
+        suggestions: {
+          type: "array",
+          items: { type: "string" },
+          description: "2-4 short suggestion options for the user to click",
+          minItems: 2,
+          maxItems: 4
+        }
+      },
+      required: ["question", "suggestions"]
+    }
   }
 ]

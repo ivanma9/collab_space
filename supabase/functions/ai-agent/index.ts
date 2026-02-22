@@ -66,11 +66,10 @@ ${boardContext}
 
 CONVERSATION BEHAVIOR:
 - If the user's request is clear and specific enough to execute (you are 80%+ confident in what to create/modify), proceed with tool calls immediately.
-- If the request is ambiguous, vague, or could be interpreted multiple ways, respond with a clarifying question as plain text.
-- When asking a clarifying question, end your response with a JSON block on its own line: {"suggestions": ["Option A", "Option B", "Option C"]}
-  These become clickable suggestion chips in the UI. Provide 2-4 options.
+- If the request is ambiguous, vague, or could be interpreted multiple ways, ask a clarifying question.
+- When asking a clarifying question, you MUST call the "askClarification" tool instead of responding with plain text. This tool takes your question text and 2-4 suggestion options that become clickable buttons in the UI.
 - Keep clarifying questions concise and specific. One question at a time.
-- After enough context, proceed with tool calls.
+- After enough context from the user, proceed with board tool calls.
 
 RULES:
 - Always generate a unique UUID string for every id field on creation tools
@@ -98,26 +97,38 @@ RULES:
 
   const latencyMs = Date.now() - startTime
 
-  const toolCalls = response.content
+  const allToolCalls = response.content
     .filter((block) => block.type === "tool_use")
     .map((block: any) => ({ name: block.name, input: block.input }))
+
+  // Check if the model called askClarification
+  const clarificationCall = allToolCalls.find((c) => c.name === "askClarification")
+  // Filter out askClarification from board tool calls
+  const toolCalls = allToolCalls.filter((c) => c.name !== "askClarification")
 
   const textBlocks = response.content
     .filter((block) => block.type === "text")
     .map((block: any) => block.text as string)
   const textContent = textBlocks.join("\n").trim()
 
+  // Extract suggestions from askClarification tool call, or fall back to JSON parsing from text
   let suggestions: string[] = []
   let cleanMessage = textContent
-  const suggestionsMatch = textContent.match(
-    /\{"suggestions"\s*:\s*(\[.*?\])\}\s*$/s,
-  )
-  if (suggestionsMatch) {
-    try {
-      suggestions = JSON.parse(suggestionsMatch[1])
-      cleanMessage = textContent.slice(0, suggestionsMatch.index).trim()
-    } catch {
-      // If parsing fails, keep full text
+
+  if (clarificationCall) {
+    cleanMessage = (clarificationCall.input as any).question || textContent
+    suggestions = (clarificationCall.input as any).suggestions || []
+  } else {
+    const suggestionsMatch = textContent.match(
+      /\{"suggestions"\s*:\s*(\[.*?\])\}\s*$/s,
+    )
+    if (suggestionsMatch) {
+      try {
+        suggestions = JSON.parse(suggestionsMatch[1])
+        cleanMessage = textContent.slice(0, suggestionsMatch.index).trim()
+      } catch {
+        // If parsing fails, keep full text
+      }
     }
   }
 
@@ -132,9 +143,9 @@ RULES:
   await logger.flush()
 
   const result =
-    toolCalls.length > 0
-      ? { type: "execution" as const, plan: cleanMessage || undefined, toolCalls, meta }
-      : { type: "clarification" as const, message: cleanMessage, suggestions, meta }
+    clarificationCall || toolCalls.length === 0
+      ? { type: "clarification" as const, message: cleanMessage, suggestions, meta }
+      : { type: "execution" as const, plan: cleanMessage || undefined, toolCalls, meta }
 
   return new Response(JSON.stringify(result), {
     headers: {
