@@ -18,12 +18,13 @@ interface StickyNoteProps {
   onUpdate: (id: string, updates: Partial<BoardObject>) => void
   onSelect?: (id: string, multiSelect?: boolean) => void
   isSelected?: boolean
+  isEditing?: boolean
   onStartEdit?: (id: string) => void
   onMount?: (id: string, node: Konva.Group) => void
   onUnmount?: (id: string) => void
 }
 
-export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
+export function StickyNote({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
   const groupRef = useRef<Konva.Group>(null)
 
   const onMountRef = useRef(onMount)
@@ -126,9 +127,9 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected, onStartEdit
         shadowOffset={{ x: 2, y: 2 }}
       />
 
-      {/* Sticky note text */}
+      {/* Sticky note text — hidden while editing (textarea overlay takes over) */}
       <Text
-        text={object.data.text}
+        text={isEditing ? '' : object.data.text}
         x={10}
         y={10}
         width={object.width - 20}

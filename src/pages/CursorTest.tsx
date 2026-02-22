@@ -90,7 +90,7 @@ function TextEditOverlayContent({
   const screenH = (note ? target.height : Math.max(target.height, 40)) * stageTransform.scale
   const color = note ? note.data.color : 'transparent'
   const fontSize = note ? 14 : (textElement?.data.fontSize ?? 16)
-  const padding = note ? 8 : 0
+  const padding = note ? Math.round(10 * stageTransform.scale) : 0
 
   return (
     <TextEditOverlay
@@ -645,6 +645,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
             onUpdate={updateObject}
             onSelect={handleObjectClick}
             isSelected={isSelected(note.id)}
+            isEditing={editingId === note.id}
             onStartEdit={handleStartEdit}
             onMount={handleNodeMount}
             onUnmount={handleNodeUnmount}
