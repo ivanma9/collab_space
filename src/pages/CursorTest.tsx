@@ -22,6 +22,7 @@ import { TempConnectorLine } from '../components/canvas/TempConnectorLine'
 import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
 import { AIPanel } from '../components/ai/AIPanel'
+import { CanvasHUD } from '../components/canvas/CanvasHUD'
 import { BoardToolbar } from '../components/toolbar/BoardToolbar'
 import { BoardTopBar } from '../components/toolbar/BoardTopBar'
 import { useAuth } from '../contexts/AuthContext'
@@ -157,6 +158,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const [connectingCursorPos, setConnectingCursorPos] = useState({ x: 0, y: 0 })
   const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame'>('select')
   const [activeColor, setActiveColor] = useState<string>("#FFD700")
+  const resetZoomRef = useRef<(() => void) | null>(null)
 
   // --- Fetch invite code for sharing ---
   useEffect(() => {
@@ -613,7 +615,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         data-transform={JSON.stringify(stageTransform)}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       >
-        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect}>
+        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef}>
         {/* Render frames first (behind everything) */}
         {frames.map((frame) => (
           <Frame
@@ -727,6 +729,14 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           onClose={() => setEditingId(null)}
         />
       )}
+
+      {/* Canvas HUD: cursor coords + zoom */}
+      <CanvasHUD
+        cursorX={cursorPos.x}
+        cursorY={cursorPos.y}
+        zoomPercent={stageTransform.scale * 100}
+        onResetZoom={() => resetZoomRef.current?.()}
+      />
 
       {/* Connection status dot */}
       <div

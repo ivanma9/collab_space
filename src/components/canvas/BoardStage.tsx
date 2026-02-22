@@ -13,6 +13,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { Stage, Layer, Rect } from 'react-konva'
 import type Konva from 'konva'
+import { GridDots } from './GridDots'
 
 interface BoardStageProps {
   children?: React.ReactNode
@@ -20,6 +21,7 @@ interface BoardStageProps {
   onStageClick?: () => void
   onStageTransformChange?: (pos: { x: number; y: number; scale: number }) => void
   onMarqueeSelect?: (rect: { x: number; y: number; width: number; height: number }) => void
+  onResetZoomRef?: React.MutableRefObject<(() => void) | null>
   width?: number
   height?: number
 }
@@ -35,6 +37,7 @@ export function BoardStage({
   onStageClick,
   onStageTransformChange,
   onMarqueeSelect,
+  onResetZoomRef,
   width = window.innerWidth,
   height = window.innerHeight,
 }: BoardStageProps) {
@@ -53,6 +56,16 @@ export function BoardStage({
   useEffect(() => {
     onStageTransformChange?.({ x: stagePos.x, y: stagePos.y, scale: stageScale })
   }, [stagePos, stageScale, onStageTransformChange])
+
+  // Expose reset zoom function via ref
+  useEffect(() => {
+    if (onResetZoomRef) {
+      onResetZoomRef.current = () => {
+        setStageScale(INITIAL_SCALE)
+        setStagePos({ x: 0, y: 0 })
+      }
+    }
+  }, [onResetZoomRef])
 
   // Stop panning when mouse is released outside the stage
   useEffect(() => {
@@ -232,6 +245,13 @@ export function BoardStage({
       data-transform={JSON.stringify({ x: stagePos.x, y: stagePos.y, scale: stageScale })}
     >
       <Layer>
+        <GridDots
+          width={width}
+          height={height}
+          stageX={stagePos.x}
+          stageY={stagePos.y}
+          scale={stageScale}
+        />
         {children}
         {marquee && (
           <Rect
