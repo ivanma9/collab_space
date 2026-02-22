@@ -186,6 +186,14 @@ export function useAIAgent({
 								: m,
 						),
 					)
+
+					// Suggest adding connectors if multiple objects were created without any
+					const createNames = ["createStickyNote", "createShape", "createFrame", "createTextBox"]
+					const creates = response.toolCalls.filter((c) => createNames.includes(c.name))
+					const hasConnectors = response.toolCalls.some((c) => c.name === "createConnector")
+					if (creates.length >= 2 && !hasConnectors) {
+						setSuggestions(["Connect these with arrows", "Add dashed connectors"])
+					}
 				}
 			} catch {
 				const errorMsg: AIChatMessage = {
