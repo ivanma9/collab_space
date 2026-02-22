@@ -100,6 +100,7 @@ export function useAIAgent({
 		chatMessages: AIChatMessage[],
 	): { role: "user" | "assistant"; content: string }[] {
 		return chatMessages
+			.filter((m) => m.content && m.content.trim().length > 0)
 			.map((m) => ({ role: m.role, content: m.content }))
 			.slice(-7)
 	}
@@ -150,7 +151,7 @@ export function useAIAgent({
 					const assistantMsg: AIChatMessage = {
 						id: crypto.randomUUID(),
 						role: "assistant",
-						content: response.message,
+						content: response.message || "What would you like me to create?",
 						timestamp: Date.now(),
 						suggestions: response.suggestions,
 						meta: response.meta,
