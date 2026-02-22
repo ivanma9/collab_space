@@ -1,5 +1,5 @@
 import Anthropic from "npm:@anthropic-ai/sdk"
-import { initLogger, wrapAnthropic } from "npm:braintrust"
+import { initLogger, wrapAnthropic, traced } from "npm:braintrust"
 import { tools } from "./tools.ts"
 
 const logger = initLogger({
@@ -24,6 +24,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+
+  return await traced(async (span) => {
 
   const { messages: incomingMessages, boardState = [], boardId, openArea } =
     await req.json()
@@ -140,6 +142,8 @@ RULES:
     }
   }
 
+  meta.braintrustTraceId = span.id
+
   await logger.flush()
 
   const result =
@@ -153,6 +157,8 @@ RULES:
       "Access-Control-Allow-Origin": "*",
     },
   })
+
+  }, { name: "ai-agent-request" })
 
   } catch (err) {
     console.error("AI agent error:", err)

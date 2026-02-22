@@ -6,7 +6,7 @@ interface AIMessageDetailsProps {
 	meta?: AIMessageMeta
 }
 
-const BRAINTRUST_BASE_URL = "https://www.braintrust.dev/app"
+const BRAINTRUST_BASE_URL = "https://www.braintrust.dev/app/asu%20mare/p"
 
 function getToolSummary(call: AIToolCallResult): string {
 	const input = call.input as Record<string, unknown>
@@ -68,7 +68,7 @@ export function AIMessageDetails({ toolCalls, meta }: AIMessageDetailsProps) {
 							</div>
 							{meta.braintrustTraceId && (
 								<a
-									href={`${BRAINTRUST_BASE_URL}/CollabBoard%20Agent/logs?traceId=${meta.braintrustTraceId}`}
+									href={`${BRAINTRUST_BASE_URL}/CollabBoard%20Agent/logs?r=${meta.braintrustTraceId}`}
 									target="_blank"
 									rel="noopener noreferrer"
 									className="text-purple-500 hover:text-purple-700 underline"
