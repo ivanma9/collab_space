@@ -223,7 +223,8 @@ export function useAIAgent({
 		currentObjects: BoardObject[],
 		zIndex: number,
 	) {
-		const input = call.input as Record<string, any>
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { input } = call as { input: any }
 
 		const mergeData = (objectId: string, patch: Record<string, any>) => {
 			const existing = currentObjects.find((o) => o.id === objectId)
