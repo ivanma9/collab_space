@@ -91,7 +91,7 @@ function DashboardInner({ userId, displayName, signOut }: {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8" data-testid="dashboard">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -118,11 +118,13 @@ function DashboardInner({ userId, displayName, signOut }: {
               onChange={e => setNewBoardName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateBoard()}
               placeholder="Board name..."
+              data-testid="new-board-name-input"
               className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             <button
               onClick={handleCreateBoard}
               disabled={isCreating || !newBoardName.trim()}
+              data-testid="create-board-button"
               className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white text-sm rounded font-medium transition"
             >
               {isCreating ? 'Creating...' : 'Create'}

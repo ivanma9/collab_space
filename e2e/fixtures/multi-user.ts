@@ -5,7 +5,7 @@
  * Uses global auth state for user1, creates new contexts for other users
  */
 
-import { test as base, Page } from '@playwright/test';
+import { test as base, expect, Page } from '@playwright/test';
 import { loginUser, waitForBoardReady } from '../helpers/test-utils';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -22,6 +22,17 @@ type MultiUserFixtures = {
 };
 
 const authFile = path.join(__dirname, '../../playwright/.auth/user.json');
+
+/**
+ * Helper: join User 1's board via invite code
+ */
+async function joinUser1Board(page: Page, user1Page: Page) {
+  const inviteCode = await user1Page.locator('[data-testid="board-invite-code"]').getAttribute('data-code');
+  if (!inviteCode) throw new Error('No invite code found on user1 page');
+  await page.goto(`/join/${inviteCode}`);
+  await expect(page.locator('[data-testid="board-stage"]')).toBeVisible({ timeout: 15000 });
+  await page.waitForTimeout(500);
+}
 
 /**
  * Extended test with multiple user pages
@@ -42,47 +53,47 @@ export const test = base.extend<MultiUserFixtures>({
     // Add delay to avoid rate limiting
     await user1Page.waitForTimeout(2000);
 
-    // User 2 needs separate auth (new anonymous user)
+    // User 2 joins User 1's board via invite code
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginUser(page);
-    await waitForBoardReady(page);
+    await joinUser1Board(page, user1Page);
     await use(page);
     await context.close();
   },
 
-  user3Page: async ({ browser, user2Page }, use) => {
+  user3Page: async ({ browser, user1Page, user2Page }, use) => {
     // Add delay to avoid rate limiting
     await user2Page.waitForTimeout(2000);
 
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginUser(page);
-    await waitForBoardReady(page);
+    await joinUser1Board(page, user1Page);
     await use(page);
     await context.close();
   },
 
-  user4Page: async ({ browser, user3Page }, use) => {
+  user4Page: async ({ browser, user1Page, user3Page }, use) => {
     // Add delay to avoid rate limiting
     await user3Page.waitForTimeout(2000);
 
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginUser(page);
-    await waitForBoardReady(page);
+    await joinUser1Board(page, user1Page);
     await use(page);
     await context.close();
   },
 
-  user5Page: async ({ browser, user4Page }, use) => {
+  user5Page: async ({ browser, user1Page, user4Page }, use) => {
     // Add delay to avoid rate limiting
     await user4Page.waitForTimeout(2000);
 
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginUser(page);
-    await waitForBoardReady(page);
+    await joinUser1Board(page, user1Page);
     await use(page);
     await context.close();
   },

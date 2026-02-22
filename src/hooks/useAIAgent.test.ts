@@ -550,9 +550,9 @@ describe("useAIAgent", () => {
 
 		expect(createObject).toHaveBeenCalledTimes(2)
 		// First call z_index = objects.length + 0 = 0
-		expect(createObject.mock.calls[0][0].z_index).toBe(0)
+		expect(createObject.mock.calls[0]![0].z_index).toBe(0)
 		// Second call z_index = objects.length + 1 = 1
-		expect(createObject.mock.calls[1][0].z_index).toBe(1)
+		expect(createObject.mock.calls[1]![0].z_index).toBe(1)
 		expect(result.current.lastResult).toBe("Done — executed 2 operation(s)")
 	})
 

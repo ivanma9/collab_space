@@ -33,10 +33,10 @@ async function globalSetup(config: FullConfig) {
     // Navigate to the app
     await page.goto(baseURL);
 
-    // Wait for either login page or board to load
+    // Wait for either login page or dashboard to load
     await Promise.race([
       page.locator('[data-testid="login-page"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
-      page.locator('[data-testid="board-stage"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+      page.locator('[data-testid="dashboard"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
     ]);
 
     // Check if we're on the login page
@@ -62,8 +62,8 @@ async function globalSetup(config: FullConfig) {
       console.log('🔑 Logging in as guest...');
       await page.locator('[data-testid="guest-login-button"]').click();
 
-      // Wait for board to load after login
-      await page.locator('[data-testid="board-stage"]').waitFor({ state: 'visible', timeout: 20000 });
+      // Wait for dashboard to load after login
+      await page.locator('[data-testid="dashboard"]').waitFor({ state: 'visible', timeout: 20000 });
       console.log('✅ Login successful');
     } else {
       console.log('✅ Already logged in');

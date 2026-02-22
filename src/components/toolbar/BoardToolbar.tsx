@@ -209,6 +209,7 @@ function ShapesFlyout({
 			<button
 				onClick={() => setOpen((v) => !v)}
 				disabled={isLoading}
+				data-testid="shapes-flyout-trigger"
 				className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ${
 					isShapeActive
 						? "bg-blue-100 text-blue-600 shadow-inner"

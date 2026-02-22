@@ -12,10 +12,10 @@ import { Page, expect } from '@playwright/test';
 export async function loginUser(page: Page, _options?: { guestName?: string }) {
   await page.goto('/');
 
-  // Wait for either login page or board to load
+  // Wait for either login page or dashboard to load
   await Promise.race([
     page.locator('[data-testid="login-page"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
-    page.locator('[data-testid="board-stage"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+    page.locator('[data-testid="dashboard"]').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
   ]);
 
   // Check if we're on the login page
@@ -43,10 +43,10 @@ export async function loginUser(page: Page, _options?: { guestName?: string }) {
     // Click guest login button
     await page.locator('[data-testid="guest-login-button"]').click();
 
-    // Wait for board to load after login
-    await expect(page.locator('[data-testid="board-stage"]')).toBeVisible({ timeout: 20000 });
+    // Wait for dashboard to load after login
+    await expect(page.locator('[data-testid="dashboard"]')).toBeVisible({ timeout: 20000 });
   }
-  // If not on login page, we're already logged in and on the board
+  // If not on login page, we're already logged in
 }
 
 /**
@@ -58,45 +58,63 @@ export async function loginWithGoogle(page: Page) {
 
   // Handle OAuth flow (this depends on your implementation)
   // You may need to use a test account or mock OAuth
+  await expect(page.locator('[data-testid="dashboard"]')).toBeVisible({ timeout: 15000 });
+}
+
+/**
+ * Navigate to a board. Creates a new board if on the dashboard with no boards.
+ */
+export async function navigateToBoard(page: Page) {
+  // Wait for page to settle
+  await page.waitForTimeout(1000);
+
+  // If already on a board, nothing to do
+  const onBoard = await page.locator('[data-testid="board-stage"]').isVisible().catch(() => false);
+  if (onBoard) return;
+
+  // If on dashboard, create a new board
+  const dashboard = await page.locator('[data-testid="dashboard"]').isVisible().catch(() => false);
+  if (dashboard) {
+    await page.locator('[data-testid="new-board-name-input"]').fill('E2E Test Board');
+    await page.locator('[data-testid="create-board-button"]').click();
+    await page.waitForURL(/\/board\//, { timeout: 15000 });
+  }
+
   await expect(page.locator('[data-testid="board-stage"]')).toBeVisible({ timeout: 15000 });
+  await page.waitForTimeout(500); // Small delay for canvas initialization
 }
 
 /**
  * Wait for board to be fully loaded and ready
  */
 export async function waitForBoardReady(page: Page) {
-  await expect(page.locator('[data-testid="board-stage"]')).toBeVisible({ timeout: 10000 });
-  await page.waitForTimeout(500); // Small delay for canvas initialization
+  await navigateToBoard(page);
 }
 
 /**
- * Create a sticky note - simplified for canvas rendering
+ * Create a sticky note - uses hidden data-testid affordance to track count
  */
 export async function createStickyNote(page: Page, _x?: number, _y?: number, text?: string) {
-  // Get initial count
-  const beforeText = await page.locator('text=/Objects:.*Notes:.*/'). textContent();
-  const beforeMatch = beforeText?.match(/Notes:\s*(\d+)/);
-  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]!) : 0;
+  // Get initial count from data attribute
+  const el = page.locator('[data-testid="object-counts"]');
+  const beforeCount = parseInt((await el.getAttribute('data-notes')) ?? '0');
 
   // Click the sticky note tool button
   await page.locator('[data-testid="sticky-note-tool"]').click();
 
-  // Wait for the count to increase
-  await page.waitForFunction((expectedCount) => {
-    const text = document.body.textContent || '';
-    const match = text.match(/Notes:\s*(\d+)/);
-    return match && parseInt(match[1]!) > expectedCount;
-  }, beforeCount, { timeout: 5000 });
+  // Poll data-notes attribute until it increases
+  await expect(async () => {
+    const current = parseInt((await el.getAttribute('data-notes')) ?? '0');
+    expect(current).toBeGreaterThan(beforeCount);
+  }).toPass({ timeout: 5000 });
 
   await page.waitForTimeout(300);
 
   // If text provided, double-click on canvas to edit the note
   if (text) {
-    // Double click in the center-right area of canvas (away from info panel)
     await page.mouse.dblclick(700, 400);
     await page.waitForTimeout(200);
 
-    // Try to edit if text overlay appears
     const overlayVisible = await page.locator('[data-testid="text-edit-overlay"]').isVisible().catch(() => false);
     if (overlayVisible) {
       await page.locator('[data-testid="text-edit-input"]').fill(text);
@@ -107,23 +125,23 @@ export async function createStickyNote(page: Page, _x?: number, _y?: number, tex
 }
 
 /**
- * Create a shape - simplified for canvas rendering
+ * Create a shape - opens flyout first, then clicks tool, polls data-shapes
  */
 export async function createShape(page: Page, type: 'rectangle' | 'circle' | 'line', _x?: number, _y?: number) {
-  // Get initial count
-  const beforeText = await page.locator('text=/Objects:.*Shapes:.*/'). textContent();
-  const beforeMatch = beforeText?.match(/Shapes:\s*(\d+)/);
-  const beforeCount = beforeMatch ? parseInt(beforeMatch[1]!) : 0;
+  // Get initial count from data attribute
+  const el = page.locator('[data-testid="object-counts"]');
+  const beforeCount = parseInt((await el.getAttribute('data-shapes')) ?? '0');
 
-  // Click the shape tool button
+  // Open shapes flyout first, then click the specific shape tool
+  await page.locator('[data-testid="shapes-flyout-trigger"]').click();
+  await page.waitForTimeout(200);
   await page.locator(`[data-testid="${type}-tool"]`).click();
 
-  // Wait for the count to increase
-  await page.waitForFunction((expectedCount) => {
-    const text = document.body.textContent || '';
-    const match = text.match(/Shapes:\s*(\d+)/);
-    return match && parseInt(match[1]!) > expectedCount;
-  }, beforeCount, { timeout: 5000 });
+  // Poll data-shapes attribute until it increases
+  await expect(async () => {
+    const current = parseInt((await el.getAttribute('data-shapes')) ?? '0');
+    expect(current).toBeGreaterThan(beforeCount);
+  }).toPass({ timeout: 5000 });
 
   await page.waitForTimeout(300);
 }
@@ -353,32 +371,25 @@ export async function measureSyncLatency(page1: Page, page2: Page): Promise<numb
 }
 
 /**
- * Count objects on the board by reading the UI display
+ * Count objects on the board by reading hidden data-testid affordance
  */
 export async function countBoardObjects(page: Page): Promise<number> {
-  const text = await page.locator('text=/Objects:.*/'). textContent();
-  const match = text?.match(/Objects:\s*(\d+)/);
-  return match ? parseInt(match[1]!) : 0;
+  const el = page.locator('[data-testid="object-counts"]');
+  return parseInt((await el.getAttribute('data-total')) ?? '0');
 }
 
 /**
- * Get object counts by type from UI
+ * Get object counts by type from hidden data-testid affordance
  */
 export async function getObjectCounts(page: Page): Promise<{ notes: number; shapes: number; connectors: number; text: number; frames: number }> {
-  const text = await page.locator('text=/Objects:.*Notes:.*Shapes:.*/'). textContent();
-
-  const notesMatch = text?.match(/Notes:\s*(\d+)/);
-  const shapesMatch = text?.match(/Shapes:\s*(\d+)/);
-  const connectorsMatch = text?.match(/Connectors:\s*(\d+)/);
-  const textMatch = text?.match(/Text:\s*(\d+)/);
-  const framesMatch = text?.match(/Frames:\s*(\d+)/);
+  const el = page.locator('[data-testid="object-counts"]');
 
   return {
-    notes: notesMatch ? parseInt(notesMatch[1]!) : 0,
-    shapes: shapesMatch ? parseInt(shapesMatch[1]!) : 0,
-    connectors: connectorsMatch ? parseInt(connectorsMatch[1]!) : 0,
-    text: textMatch ? parseInt(textMatch[1]!) : 0,
-    frames: framesMatch ? parseInt(framesMatch[1]!) : 0,
+    notes: parseInt((await el.getAttribute('data-notes')) ?? '0'),
+    shapes: parseInt((await el.getAttribute('data-shapes')) ?? '0'),
+    connectors: parseInt((await el.getAttribute('data-connectors')) ?? '0'),
+    text: parseInt((await el.getAttribute('data-text')) ?? '0'),
+    frames: parseInt((await el.getAttribute('data-frames')) ?? '0'),
   };
 }
 

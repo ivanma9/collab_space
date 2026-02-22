@@ -750,6 +750,28 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           {error}
         </div>
       )}
+
+      {/* Hidden testing affordances */}
+      <div
+        data-testid="object-counts"
+        data-notes={stickyNotes.length}
+        data-shapes={shapes.length}
+        data-connectors={connectors.length}
+        data-text={textElements.length}
+        data-frames={frames.length}
+        data-total={objects.length}
+        className="hidden"
+      />
+      <div
+        data-testid="board-invite-code"
+        data-code={inviteCode ?? ''}
+        className="hidden"
+      />
+      <div
+        data-testid="remote-cursor-count"
+        data-count={cursors.size}
+        className="hidden"
+      />
     </div>
   )
 }
