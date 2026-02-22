@@ -209,8 +209,15 @@ Each AI action message includes a collapsible details section:
 - Latency
 - Direct link to Braintrust trace: `https://www.braintrust.dev/app/{org}/p/CollabBoard%20Agent/logs?traceId={traceId}`
 
+## V1 Implementation Notes
+
+- **Execute button confirmation:** V1 auto-executes all execution responses immediately (fast path). The plan summary with [Execute]/[Edit plan] buttons described in the Clarification Path is deferred to V2. The types support `executionStatus: "pending"` for future use.
+- **Braintrust trace ID:** Currently returns `null`. The `wrapAnthropic` SDK auto-logs traces but extracting the span ID at runtime needs investigation. The UI gracefully hides the link when the ID is null.
+
 ## Out of Scope (Future)
 
+- Plan summary confirmation with [Execute] button (V2)
+- Braintrust trace ID extraction for deep-dive links
 - Chat persistence / audit log per board
 - Streaming responses
 - Multi-model support (upgrading from Haiku for complex queries)

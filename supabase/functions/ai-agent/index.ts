@@ -23,7 +23,9 @@ Deno.serve(async (req) => {
     })
   }
 
-  const { messages: incomingMessages, boardState, boardId, openArea } =
+  try {
+
+  const { messages: incomingMessages, boardState = [], boardId, openArea } =
     await req.json()
 
   const boardContext =
@@ -140,4 +142,20 @@ RULES:
       "Access-Control-Allow-Origin": "*",
     },
   })
+
+  } catch (err) {
+    console.error("AI agent error:", err)
+    const errorResponse = {
+      type: "clarification" as const,
+      message: "Something went wrong. Please try again.",
+      suggestions: [],
+      meta: { inputTokens: 0, outputTokens: 0, latencyMs: 0, model: "", braintrustTraceId: null },
+    }
+    return new Response(JSON.stringify(errorResponse), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    })
+  }
 })
