@@ -39,7 +39,7 @@ export function AIChatMessage({ message }: AIChatMessageProps) {
 						)}
 						<span className="text-xs font-medium text-purple-700">
 							{message.executionStatus === "executed"
-								? `Executed ${message.toolCalls?.length ?? 0} operation(s)`
+								? `Executed ${message.toolCalls?.reduce((sum, c) => sum + ((c.name === "bulkCreateObjects" ? (c.input as Record<string, number>)?.["count"] : null) || 1), 0) ?? 0} operation(s)`
 								: "Executing..."}
 						</span>
 					</div>

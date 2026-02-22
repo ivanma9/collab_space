@@ -373,6 +373,79 @@ export function useAIAgent({
 			}
 			case "getBoardState":
 				return
+			case "bulkCreateObjects": {
+				const { objectType, count, startX, startY, columns, template } = input
+				const w = template.width ?? (objectType === "sticky_note" ? 200 : objectType === "frame" ? 800 : objectType === "text" ? 200 : 150)
+				const h = template.height ?? (objectType === "sticky_note" ? 200 : objectType === "frame" ? 600 : objectType === "text" ? 50 : 100)
+				const gap = 20
+				const chunkSize = 50
+
+				for (let chunk = 0; chunk < count; chunk += chunkSize) {
+					const batch: Promise<void>[] = []
+					const end = Math.min(chunk + chunkSize, count)
+					for (let i = chunk; i < end; i++) {
+						const col = i % columns
+						const row = Math.floor(i / columns)
+						const x = startX + col * (w + gap)
+						const y = startY + row * (h + gap)
+						const n = i + 1
+						const id = crypto.randomUUID()
+						const resolveTemplate = (s: string | undefined) =>
+							s?.replace(/\{n\}/g, String(n))
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						let objData: Record<string, any> = {}
+						let type: string = objectType
+						switch (objectType) {
+							case "sticky_note":
+								objData = {
+									text: resolveTemplate(template.text) ?? `Note ${n}`,
+									color: STICKY_COLORS[template.color] ?? template.color ?? STICKY_COLORS["yellow"],
+								}
+								break
+							case "shape": {
+								const color = SHAPE_COLORS[template.color] ?? template.color ?? SHAPE_COLORS["blue"]
+								const shapeType = template.shapeType ?? "rectangle"
+								type = shapeType
+								objData = shapeType === "circle"
+									? { radius: Math.min(w, h) / 2, fillColor: color, strokeColor: "#2D3436", strokeWidth: 2 }
+									: shapeType === "line"
+										? { points: [0, 0, w, h], strokeColor: color, strokeWidth: 4 }
+										: { fillColor: color, strokeColor: "#2D3436", strokeWidth: 2 }
+								break
+							}
+							case "frame":
+								objData = {
+									title: resolveTemplate(template.title) ?? `Frame ${n}`,
+									backgroundColor: "rgba(240,240,240,0.5)",
+								}
+								break
+							case "text":
+								objData = {
+									text: resolveTemplate(template.text) ?? `Text ${n}`,
+									fontSize: template.fontSize ?? 16,
+									color: template.color ?? "#000000",
+								}
+								break
+						}
+						const zIdx = objectType === "frame"
+							? -(currentObjects.filter((o) => o.type === "frame").length + i + 1)
+							: zIndex + i
+						batch.push(
+							createObject({
+								id,
+								board_id: boardId,
+								type: type as BoardObject["type"],
+								x, y, width: w, height: h,
+								rotation: 0,
+								z_index: zIdx,
+								data: objData as BoardObject["data"],
+							}),
+						)
+					}
+					await Promise.all(batch)
+				}
+				return
+			}
 		}
 	}
 

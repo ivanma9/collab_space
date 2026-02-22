@@ -10,6 +10,11 @@ const BRAINTRUST_BASE_URL = "https://www.braintrust.dev/app"
 
 function getToolSummary(call: AIToolCallResult): string {
 	const input = call.input as Record<string, unknown>
+	if (call.name === "bulkCreateObjects") {
+		const count = input["count"] as number
+		const type = input["objectType"] as string
+		return `bulkCreateObjects → ${count} ${type.replace("_", " ")}s`
+	}
 	const label =
 		(input["text"] as string) ??
 		(input["title"] as string) ??
