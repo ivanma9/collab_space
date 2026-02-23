@@ -15,7 +15,7 @@ export type Json =
 
 export type BoardType = 'regular' | 'journey'
 export type SessionStatus = 'active' | 'completed'
-export type GoalStatus = 'active' | 'completed' | 'stalled' | 'dropped'
+export type GoalStatus = 'active' | 'completed' | 'stalled'
 
 export type Database = {
   public: {

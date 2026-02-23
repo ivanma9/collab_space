@@ -131,7 +131,7 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
     } else if (obj.type === 'goal') {
       const d = obj.data as { title: string; status: string }
       const statusColors: Record<string, string> = {
-        active: '#FCD34D', completed: '#86EFAC', stalled: '#FDBA74', dropped: '#D1D5DB',
+        active: '#FCD34D', completed: '#86EFAC', stalled: '#FDBA74',
       }
       ctx.fillStyle = '#FFFBEB'
       ctx.strokeStyle = statusColors[d.status] ?? '#D1D5DB'

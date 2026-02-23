@@ -18,7 +18,6 @@ const STATUS_CONFIG: Record<GoalStatus, { bg: string; badge: string; badgeText: 
   active: { bg: '#FFFBEB', badge: '#F59E0B', badgeText: 'Active', border: '#FCD34D' },
   completed: { bg: '#F0FDF4', badge: '#10B981', badgeText: 'Done', border: '#86EFAC' },
   stalled: { bg: '#FFF7ED', badge: '#F97316', badgeText: 'Stalled', border: '#FDBA74' },
-  dropped: { bg: '#F9FAFB', badge: '#9CA3AF', badgeText: 'Dropped', border: '#D1D5DB' },
 }
 
 const PADDING = 12

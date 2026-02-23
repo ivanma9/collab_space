@@ -16,28 +16,24 @@ const STATUS_FILTERS: { value: GoalStatus | 'all'; label: string }[] = [
   { value: 'active', label: 'Active' },
   { value: 'completed', label: 'Done' },
   { value: 'stalled', label: 'Stalled' },
-  { value: 'dropped', label: 'Dropped' },
 ]
 
 const STATUS_COLORS: Record<GoalStatus, string> = {
   active: 'bg-amber-100 text-amber-800',
   completed: 'bg-emerald-100 text-emerald-800',
   stalled: 'bg-orange-100 text-orange-800',
-  dropped: 'bg-gray-100 text-gray-600',
 }
 
 const STATUS_DOTS: Record<GoalStatus, string> = {
   active: 'bg-amber-500',
   completed: 'bg-emerald-500',
   stalled: 'bg-orange-500',
-  dropped: 'bg-gray-400',
 }
 
 const NEXT_STATUS: Record<GoalStatus, GoalStatus> = {
   active: 'completed',
   completed: 'active',
   stalled: 'active',
-  dropped: 'active',
 }
 
 export function GoalsSidebar({ isOpen, onClose, objects, onGoalClick, onStatusChange }: GoalsSidebarProps) {

@@ -234,12 +234,12 @@ export const tools = [
   },
   {
     name: "updateGoalStatus",
-    description: "Update the status of an existing goal (active, completed, stalled, or dropped)",
+    description: "Update the status of an existing goal (active, completed, or stalled)",
     input_schema: {
       type: "object",
       properties: {
         objectId: { type: "string", description: "The ID of the goal object to update" },
-        status: { type: "string", enum: ["active", "completed", "stalled", "dropped"], description: "New status for the goal" },
+        status: { type: "string", enum: ["active", "completed", "stalled"], description: "New status for the goal" },
         note: { type: "string", description: "Optional note explaining the status change" }
       },
       required: ["objectId", "status"]

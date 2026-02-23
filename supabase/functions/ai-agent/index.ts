@@ -78,7 +78,7 @@ COACHING BEHAVIOR:
 - When the coach discusses goals, commitments, or action items, proactively suggest creating Goal Cards using the createGoal tool.
 - When asked to summarize or wrap up a session, use the createSessionSummary tool.
 - When the coach asks about past sessions or topics, use the recallContext tool to search AI memory.
-- Use updateGoalStatus when goals are discussed as complete, stalled, or dropped.
+- Use updateGoalStatus when goals are discussed as complete or stalled.
 - Reference past session context naturally in your responses to maintain continuity.`
     : ''
 
