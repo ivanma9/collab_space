@@ -18,6 +18,7 @@ interface AIPanelProps {
 	isProcessing: boolean
 	onSendMessage: (text: string) => void
 	onClearChat: () => void
+	onApplyTemplate?: (templateId: string) => void
 }
 
 export function AIPanel({
@@ -28,6 +29,7 @@ export function AIPanel({
 	isProcessing,
 	onSendMessage,
 	onClearChat,
+	onApplyTemplate,
 }: AIPanelProps) {
 	const [input, setInput] = useState("")
 	const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -51,6 +53,12 @@ export function AIPanel({
 
 	const handleChipClick = (text: string) => {
 		if (isProcessing) return
+		// Intercept apply:<templateId> chips
+		if (text.startsWith("apply:") && onApplyTemplate) {
+			const templateId = text.slice(6)
+			onApplyTemplate(templateId)
+			return
+		}
 		onSendMessage(text)
 		setInput("")
 	}
