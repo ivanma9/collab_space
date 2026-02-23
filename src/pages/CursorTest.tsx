@@ -23,6 +23,7 @@ import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
 import { TextElement } from '../components/canvas/TextElement'
 import { AIPanel } from '../components/ai/AIPanel'
 import { CanvasHUD } from '../components/canvas/CanvasHUD'
+import { ContextMenu } from '../components/canvas/ContextMenu'
 import { BoardToolbar } from '../components/toolbar/BoardToolbar'
 import { BoardTopBar } from '../components/toolbar/BoardTopBar'
 import { useAuth } from '../contexts/AuthContext'
@@ -159,6 +160,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const [activeTool, setActiveTool] = useState<'select' | 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame'>('select')
   const [activeColor, setActiveColor] = useState<string>("#FFD700")
   const resetZoomRef = useRef<(() => void) | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   // --- Fetch invite code for sharing ---
   useEffect(() => {
@@ -290,6 +292,59 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [selectedIds, objects, updateObject])
 
+  // --- Layer ordering ---
+  const handleBringToFront = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const maxZ = Math.max(...objects.map(o => o.z_index))
+    let offset = 1
+    selectedIds.forEach(id => {
+      updateObject(id, { z_index: maxZ + offset })
+      offset++
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleSendToBack = useCallback(() => {
+    if (selectedIds.size === 0) return
+    // Find min z_index among non-frame objects so frames stay behind
+    const nonFrameObjects = objects.filter(o => o.type !== 'frame')
+    const minZ = nonFrameObjects.length > 0 ? Math.min(...nonFrameObjects.map(o => o.z_index)) : 0
+    let offset = 1
+    selectedIds.forEach(id => {
+      const obj = objects.find(o => o.id === id)
+      if (!obj || obj.type === 'frame') return
+      updateObject(id, { z_index: minZ - offset })
+      offset++
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleBringForward = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const sortedObjs = [...objects].sort((a, b) => a.z_index - b.z_index)
+    selectedIds.forEach(id => {
+      const idx = sortedObjs.findIndex(o => o.id === id)
+      if (idx === -1 || idx >= sortedObjs.length - 1) return
+      const current = sortedObjs[idx]!
+      const above = sortedObjs[idx + 1]!
+      if (above.type === 'frame' && current.type !== 'frame') return
+      updateObject(id, { z_index: above.z_index })
+      updateObject(above.id, { z_index: current.z_index })
+    })
+  }, [selectedIds, objects, updateObject])
+
+  const handleSendBackward = useCallback(() => {
+    if (selectedIds.size === 0) return
+    const sortedObjs = [...objects].sort((a, b) => a.z_index - b.z_index)
+    selectedIds.forEach(id => {
+      const idx = sortedObjs.findIndex(o => o.id === id)
+      if (idx <= 0) return
+      const current = sortedObjs[idx]!
+      const below = sortedObjs[idx - 1]!
+      if (below.type === 'frame' && current.type !== 'frame') return
+      updateObject(id, { z_index: below.z_index })
+      updateObject(below.id, { z_index: current.z_index })
+    })
+  }, [selectedIds, objects, updateObject])
+
   // Sync activeColor from the first selected object when selection changes
   useEffect(() => {
     if (selectedIds.size === 0) return
@@ -315,6 +370,27 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         setConnectorMode(null)
         return
       }
+      // Layer ordering shortcuts
+      if (e.key === ']') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        if (e.metaKey || e.ctrlKey) {
+          handleBringToFront()
+        } else {
+          handleBringForward()
+        }
+        return
+      }
+      if (e.key === '[') {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+        e.preventDefault()
+        if (e.metaKey || e.ctrlKey) {
+          handleSendToBack()
+        } else {
+          handleSendBackward()
+        }
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         e.preventDefault()
@@ -329,7 +405,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedIds, deleteObject, clearSelection, handleDuplicate, connectorMode])
+  }, [selectedIds, deleteObject, clearSelection, handleDuplicate, connectorMode, handleBringToFront, handleSendToBack, handleBringForward, handleSendBackward])
 
   // Broadcast cursor position whenever it changes
   const handleCursorMove = useCallback((x: number, y: number) => {
@@ -462,6 +538,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           obj.type === 'frame'
       ),
     }),
+    [objects]
+  )
+
+  // Sorted render order for z_index-based layering
+  const sortedObjects = useMemo(() =>
+    [...objects].sort((a, b) => a.z_index - b.z_index),
     [objects]
   )
 
@@ -614,74 +696,85 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         data-testid="board-stage"
         data-transform={JSON.stringify(stageTransform)}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          if (selectedIds.size > 0) {
+            setContextMenu({ x: e.clientX, y: e.clientY })
+          }
+        }}
       >
-        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef}>
-        {/* Render frames first (behind everything) */}
-        {frames.map((frame) => (
-          <Frame
-            key={frame.id}
-            object={frame}
-            onUpdate={updateObject}
-            onSelect={handleObjectClick}
-            isSelected={isSelected(frame.id)}
-            onMount={handleNodeMount}
-            onUnmount={handleNodeUnmount}
-          />
-        ))}
-
-        {/* Render connectors (behind shapes) */}
-        {connectors.map(c => (
-          <Connector
-            key={c.id}
-            object={c}
-            allObjects={objects}
-            isSelected={isSelected(c.id)}
-            onSelect={handleObjectClick}
-          />
-        ))}
-
-        {/* Render shapes */}
-        {shapes.map((shape) => (
-          <Shape
-            key={shape.id}
-            object={shape}
-            onUpdate={updateObject}
-            onSelect={handleObjectClick}
-            isSelected={isSelected(shape.id)}
-            onMount={handleNodeMount}
-            onUnmount={handleNodeUnmount}
-          />
-        ))}
-
-        {/* Render sticky notes */}
-        {stickyNotes.map((note) => (
-          <StickyNote
-            key={note.id}
-            object={note}
-            onUpdate={updateObject}
-            onSelect={handleObjectClick}
-            isSelected={isSelected(note.id)}
-            isEditing={editingId === note.id}
-            onStartEdit={handleStartEdit}
-            onMount={handleNodeMount}
-            onUnmount={handleNodeUnmount}
-          />
-        ))}
-
-        {/* Render text elements */}
-        {textElements.map((textEl) => (
-          <TextElement
-            key={textEl.id}
-            object={textEl}
-            onUpdate={updateObject}
-            onSelect={handleObjectClick}
-            isSelected={isSelected(textEl.id)}
-            isEditing={editingId === textEl.id}
-            onStartEdit={handleStartEdit}
-            onMount={handleNodeMount}
-            onUnmount={handleNodeUnmount}
-          />
-        ))}
+        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { setContextMenu(null); if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef}>
+        {/* Render all objects sorted by z_index */}
+        {sortedObjects.map((obj) => {
+          switch (obj.type) {
+            case 'frame':
+              return (
+                <Frame
+                  key={obj.id}
+                  object={obj as BoardObject & { type: 'frame'; data: FrameData }}
+                  onUpdate={updateObject}
+                  onSelect={handleObjectClick}
+                  isSelected={isSelected(obj.id)}
+                  onMount={handleNodeMount}
+                  onUnmount={handleNodeUnmount}
+                />
+              )
+            case 'connector':
+              return (
+                <Connector
+                  key={obj.id}
+                  object={obj as BoardObject & { type: 'connector'; data: ConnectorData }}
+                  allObjects={objects}
+                  isSelected={isSelected(obj.id)}
+                  onSelect={handleObjectClick}
+                />
+              )
+            case 'rectangle':
+            case 'circle':
+            case 'line':
+              return (
+                <Shape
+                  key={obj.id}
+                  object={obj as BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData }}
+                  onUpdate={updateObject}
+                  onSelect={handleObjectClick}
+                  isSelected={isSelected(obj.id)}
+                  onMount={handleNodeMount}
+                  onUnmount={handleNodeUnmount}
+                />
+              )
+            case 'sticky_note':
+              return (
+                <StickyNote
+                  key={obj.id}
+                  object={obj as BoardObject & { type: 'sticky_note'; data: StickyNoteData }}
+                  onUpdate={updateObject}
+                  onSelect={handleObjectClick}
+                  isSelected={isSelected(obj.id)}
+                  isEditing={editingId === obj.id}
+                  onStartEdit={handleStartEdit}
+                  onMount={handleNodeMount}
+                  onUnmount={handleNodeUnmount}
+                />
+              )
+            case 'text':
+              return (
+                <TextElement
+                  key={obj.id}
+                  object={obj as BoardObject & { type: 'text'; data: TextData }}
+                  onUpdate={updateObject}
+                  onSelect={handleObjectClick}
+                  isSelected={isSelected(obj.id)}
+                  isEditing={editingId === obj.id}
+                  onStartEdit={handleStartEdit}
+                  onMount={handleNodeMount}
+                  onUnmount={handleNodeUnmount}
+                />
+              )
+            default:
+              return null
+          }
+        })}
 
         <SelectionTransformer
           selectedNodes={selectedNodes}
@@ -770,6 +863,21 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         </button>
       )}
 
+      {/* Context menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onBringToFront={handleBringToFront}
+          onBringForward={handleBringForward}
+          onSendBackward={handleSendBackward}
+          onSendToBack={handleSendToBack}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
       {/* Bottom Toolbar */}
       <BoardToolbar
         activeTool={activeTool}
@@ -781,6 +889,10 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         activeColor={activeColor}
         onColorChange={handleColorChange}
         hasSelection={selectedIds.size > 0}
+        onBringToFront={handleBringToFront}
+        onBringForward={handleBringForward}
+        onSendBackward={handleSendBackward}
+        onSendToBack={handleSendToBack}
       />
 
       {/* Error display */}

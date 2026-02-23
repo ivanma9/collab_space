@@ -23,6 +23,10 @@ interface BoardToolbarProps {
 	activeColor: string
 	onColorChange: (color: string) => void
 	hasSelection: boolean
+	onBringToFront: () => void
+	onBringForward: () => void
+	onSendBackward: () => void
+	onSendToBack: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +118,16 @@ function ChevronDownIcon() {
 	return (
 		<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
 			<polyline points="6 9 12 15 18 9" />
+		</svg>
+	)
+}
+
+function LayersIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+			<polygon points="12 2 2 7 12 12 22 7 12 2" />
+			<polyline points="2 17 12 22 22 17" />
+			<polyline points="2 12 12 17 22 12" />
 		</svg>
 	)
 }
@@ -260,6 +274,87 @@ function ShapesFlyout({
 }
 
 // ---------------------------------------------------------------------------
+// Layers Flyout
+// ---------------------------------------------------------------------------
+
+function LayersFlyout({
+	onBringToFront,
+	onBringForward,
+	onSendBackward,
+	onSendToBack,
+}: {
+	onBringToFront: () => void
+	onBringForward: () => void
+	onSendBackward: () => void
+	onSendToBack: () => void
+}) {
+	const [open, setOpen] = useState(false)
+	const ref = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		if (!open) return
+		const handler = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+		}
+		document.addEventListener("mousedown", handler)
+		return () => document.removeEventListener("mousedown", handler)
+	}, [open])
+
+	const items: { label: string; shortcut: string; action: () => void }[] = [
+		{ label: "Front", shortcut: "⌘]", action: onBringToFront },
+		{ label: "Forward", shortcut: "]", action: onBringForward },
+		{ label: "Backward", shortcut: "[", action: onSendBackward },
+		{ label: "Back", shortcut: "⌘[", action: onSendToBack },
+	]
+
+	return (
+		<div ref={ref} className="relative group">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ${
+					open
+						? "bg-blue-100 text-blue-600 shadow-inner"
+						: "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+				}`}
+				title="Layer Order"
+				data-testid="layers-flyout-trigger"
+			>
+				<LayersIcon />
+				<span className="absolute bottom-1 right-1">
+					<ChevronDownIcon />
+				</span>
+			</button>
+
+			{/* Tooltip (only when flyout is closed) */}
+			{!open && (
+				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
+					Layer Order
+				</div>
+			)}
+
+			{/* Flyout menu */}
+			{open && (
+				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-xl shadow-xl border border-gray-200 p-1.5 flex flex-col min-w-[140px]">
+					{items.map((item) => (
+						<button
+							key={item.label}
+							onClick={() => {
+								item.action()
+								setOpen(false)
+							}}
+							className="px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 flex items-center justify-between gap-4"
+						>
+							<span>{item.label}</span>
+							<span className="text-xs text-gray-400">{item.shortcut}</span>
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
 // Divider
 // ---------------------------------------------------------------------------
 
@@ -364,7 +459,11 @@ export function BoardToolbar({
 	isLoading,
 	activeColor,
 	onColorChange,
-	hasSelection: _hasSelection,
+	hasSelection,
+	onBringToFront,
+	onBringForward,
+	onSendBackward,
+	onSendToBack,
 }: BoardToolbarProps) {
 	const handleToolClick = useCallback(
 		(tool: Tool) => {
@@ -425,6 +524,17 @@ export function BoardToolbar({
 
 				<Divider />
 				<ColorButton activeColor={activeColor} onColorChange={onColorChange} />
+				{hasSelection && (
+					<>
+						<Divider />
+						<LayersFlyout
+							onBringToFront={onBringToFront}
+							onBringForward={onBringForward}
+							onSendBackward={onSendBackward}
+							onSendToBack={onSendToBack}
+						/>
+					</>
+				)}
 				<Divider />
 				{/* Delete */}
 				<ToolButton
