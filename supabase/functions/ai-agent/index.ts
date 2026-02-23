@@ -5,7 +5,7 @@ import { tools } from "./tools.ts"
 const logger = initLogger({
   projectName: "CollabBoard Agent",
   apiKey: Deno.env.get("BRAINTRUST_API_KEY"),
-  asyncFlush: false,
+  asyncFlush: true,
 })
 
 const anthropic = wrapAnthropic(
