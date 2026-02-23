@@ -7,7 +7,7 @@
  * - Colored fill and stroke
  */
 
-import { useRef, useEffect } from 'react'
+import { memo, useRef, useEffect } from 'react'
 import { Group, Rect, Ellipse, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, RectangleData, CircleData, LineData } from '../../lib/database.types'
@@ -24,7 +24,7 @@ interface ShapeProps {
   onUnmount?: (id: string) => void
 }
 
-export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: ShapeProps) {
+export const Shape = memo(function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: ShapeProps) {
   const groupRef = useRef<Konva.Group>(null)
 
   const onMountRef = useRef(onMount)
@@ -132,4 +132,4 @@ export function Shape({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
       {renderShape()}
     </Group>
   )
-}
+})

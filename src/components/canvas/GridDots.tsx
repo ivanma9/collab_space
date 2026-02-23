@@ -5,6 +5,7 @@
  * pass, which is far more performant than individual Circle nodes.
  */
 
+import { memo } from 'react'
 import { Shape } from 'react-konva'
 import type Konva from 'konva'
 
@@ -19,7 +20,7 @@ interface GridDotsProps {
 const GRID_SPACING = 50
 const DOT_COLOR = '#d0d0d0'
 
-export function GridDots({ width, height, stageX, stageY, scale }: GridDotsProps) {
+export const GridDots = memo(function GridDots({ width, height, stageX, stageY, scale }: GridDotsProps) {
   const sceneFunc = (ctx: Konva.Context, shape: Konva.Shape) => {
     // Compute visible world-coordinate bounds
     const visibleX = -stageX / scale
@@ -57,4 +58,4 @@ export function GridDots({ width, height, stageX, stageY, scale }: GridDotsProps
       perfectDrawEnabled={false}
     />
   )
-}
+})

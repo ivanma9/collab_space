@@ -1,9 +1,10 @@
+import { memo } from 'react'
 import { Arrow, Line } from 'react-konva'
 import type { BoardObject, ConnectorData } from '../../lib/database.types'
 
 interface ConnectorProps {
   object: BoardObject & { type: 'connector'; data: ConnectorData }
-  allObjects: BoardObject[]
+  objectMap: Map<string, BoardObject>
   isSelected?: boolean
   onSelect?: (id: string, multiSelect?: boolean) => void
 }
@@ -12,9 +13,9 @@ function getCenterPoint(obj: BoardObject) {
   return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }
 }
 
-export function Connector({ object, allObjects, isSelected, onSelect }: ConnectorProps) {
-  const from = allObjects.find(o => o.id === object.data.fromId)
-  const to = allObjects.find(o => o.id === object.data.toId)
+export const Connector = memo(function Connector({ object, objectMap, isSelected, onSelect }: ConnectorProps) {
+  const from = objectMap.get(object.data.fromId)
+  const to = objectMap.get(object.data.toId)
 
   if (!from || !to) return null
 
@@ -54,4 +55,4 @@ export function Connector({ object, allObjects, isSelected, onSelect }: Connecto
       data-testid={`connector-${object.id}`}
     />
   )
-}
+})

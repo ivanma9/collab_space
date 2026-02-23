@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Group, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, TextData } from '../../lib/database.types'
@@ -14,7 +14,7 @@ interface TextElementProps {
   onUnmount?: (id: string) => void
 }
 
-export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: TextElementProps) {
+export const TextElement = memo(function TextElement({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: TextElementProps) {
   const groupRef = useRef<Konva.Group>(null)
   const textRef = useRef<Konva.Text>(null)
   const lastDrag = useRef(0)
@@ -81,4 +81,4 @@ export function TextElement({ object, onUpdate, onSelect, isSelected, isEditing,
       />
     </Group>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Transformer } from 'react-konva'
 import type Konva from 'konva'
 
@@ -8,7 +8,7 @@ interface SelectionTransformerProps {
   onTransformEnd: (id: string, updates: { x: number; y: number; scaleX: number; scaleY: number; rotation: number }) => void
 }
 
-export function SelectionTransformer({ selectedNodes, transformVersion, onTransformEnd }: SelectionTransformerProps) {
+export const SelectionTransformer = memo(function SelectionTransformer({ selectedNodes, transformVersion, onTransformEnd }: SelectionTransformerProps) {
   const trRef = useRef<Konva.Transformer>(null)
 
   useEffect(() => {
@@ -47,4 +47,4 @@ export function SelectionTransformer({ selectedNodes, transformVersion, onTransf
       data-testid="selection-transformer"
     />
   )
-}
+})

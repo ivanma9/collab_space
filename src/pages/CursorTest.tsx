@@ -6,21 +6,13 @@
  * real-time sync, presence, and multi-user cursor tracking.
  */
 
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type Konva from 'konva'
 
 import { BoardStage } from '../components/canvas/BoardStage'
-import { ConnectionHandles } from '../components/canvas/ConnectionHandles'
-import { Connector } from '../components/canvas/Connector'
-import { Frame } from '../components/canvas/Frame'
-import { RemoteCursor } from '../components/canvas/RemoteCursor'
-import { Shape } from '../components/canvas/Shape'
-import { StickyNote } from '../components/canvas/StickyNote'
-import { SelectionTransformer } from '../components/canvas/SelectionTransformer'
-import { TempConnectorLine } from '../components/canvas/TempConnectorLine'
-import { TextEditOverlay } from '../components/canvas/TextEditOverlay'
-import { TextElement } from '../components/canvas/TextElement'
+import { ObjectRenderer } from '../components/canvas/ObjectRenderer'
+import { TextEditOverlayContent } from '../components/canvas/TextEditOverlayContent'
 import { AIPanel } from '../components/ai/AIPanel'
 import { CanvasHUD } from '../components/canvas/CanvasHUD'
 import { ContextMenu } from '../components/canvas/ContextMenu'
@@ -38,9 +30,6 @@ import type {
   ConnectorData,
   FrameData,
   StickyNoteData,
-  RectangleData,
-  CircleData,
-  LineData,
   TextData,
 } from '../lib/database.types'
 
@@ -62,53 +51,6 @@ interface CursorTestInnerProps {
   displayName: string
   avatarUrl: string | null
   signOut: () => Promise<void>
-}
-
-interface TextEditOverlayContentProps {
-  editingId: string
-  stickyNotes: (BoardObject & { type: 'sticky_note'; data: StickyNoteData })[]
-  textElements: (BoardObject & { type: 'text'; data: TextData })[]
-  stageTransform: { x: number; y: number; scale: number }
-  onSave: (newText: string) => void
-  onClose: () => void
-}
-
-function TextEditOverlayContent({
-  editingId,
-  stickyNotes,
-  textElements,
-  stageTransform,
-  onSave,
-  onClose,
-}: TextEditOverlayContentProps): ReactNode | null {
-  const note = stickyNotes.find(n => n.id === editingId)
-  const textElement = textElements.find(t => t.id === editingId)
-  const target = note ?? textElement
-  if (!target) return null
-
-  const screenX = target.x * stageTransform.scale + stageTransform.x
-  const screenY = target.y * stageTransform.scale + stageTransform.y
-  const screenW = target.width * stageTransform.scale
-  const screenH = (note ? target.height : Math.max(target.height, 40)) * stageTransform.scale
-  const color = note ? note.data.color : 'transparent'
-  const fontSize = note ? 14 : (textElement?.data.fontSize ?? 16)
-  const padding = note ? Math.round(10 * stageTransform.scale) : 0
-
-  return (
-    <TextEditOverlay
-      text={target.data.text}
-      x={screenX}
-      y={screenY}
-      width={screenW}
-      height={screenH}
-      color={color}
-      scale={stageTransform.scale}
-      fontSize={fontSize}
-      padding={padding}
-      onSave={onSave}
-      onClose={onClose}
-    />
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +149,32 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const objectsRef = useRef(objects)
   objectsRef.current = objects
 
+  // Object lookup map for O(1) access by id
+  const objectMap = useMemo(() => {
+    const map = new Map<string, BoardObject>()
+    for (const obj of objects) map.set(obj.id, obj)
+    return map
+  }, [objects])
+
+  // Single-pass object counts (replaces typed filter arrays)
+  const objectCounts = useMemo(() => {
+    let notes = 0, shapes = 0, connectors = 0, text = 0, frames = 0
+    for (const o of objects) {
+      if (o.type === 'sticky_note') notes++
+      else if (o.type === 'rectangle' || o.type === 'circle' || o.type === 'line') shapes++
+      else if (o.type === 'connector') connectors++
+      else if (o.type === 'text') text++
+      else if (o.type === 'frame') frames++
+    }
+    return { notes, shapes, connectors, text, frames }
+  }, [objects])
+
+  // Sorted render order for z_index-based layering
+  const sortedObjects = useMemo(() =>
+    [...objects].sort((a, b) => a.z_index - b.z_index),
+    [objects]
+  )
+
   const nodeRefs = useRef<Map<string, Konva.Group>>(new Map())
 
   const handleNodeMount = useCallback((id: string, node: Konva.Group) => {
@@ -227,10 +195,10 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   // Force transformer to re-measure when selected objects change dimensions (e.g. text auto-resize)
   const selectedDimensionKey = useMemo(() =>
     Array.from(selectedIds).map(id => {
-      const obj = objects.find(o => o.id === id)
+      const obj = objectMap.get(id)
       return obj ? `${obj.id}:${obj.width}:${obj.height}` : ''
     }).join(','),
-    [objects, selectedIds]
+    [objectMap, selectedIds]
   )
   useEffect(() => {
     if (selectedIds.size > 0) setTransformVersion(v => v + 1)
@@ -254,7 +222,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     if (selectedIds.size === 0) return
     let zOffset = 0
     selectedIds.forEach(id => {
-      const source = objects.find(o => o.id === id)
+      const source = objectMap.get(id)
       if (!source) return
       // eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentionally omitting for createObject
       const { id: _omit, created_at: _omit2, updated_at: _omit3, created_by: _omit4, ...rest } = source
@@ -265,14 +233,14 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         z_index: objects.length + zOffset++,
       })
     })
-  }, [selectedIds, objects, createObject])
+  }, [selectedIds, objectMap, objects.length, createObject])
 
   const handleColorChange = useCallback((color: string) => {
     setActiveColor(color)
     if (selectedIds.size === 0) return
 
     selectedIds.forEach((id) => {
-      const obj = objects.find((o) => o.id === id)
+      const obj = objectMap.get(id)
       if (!obj) return
 
       if (obj.type === "sticky_note") {
@@ -290,7 +258,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       }
       // connector: no color field in ConnectorData — skip intentionally
     })
-  }, [selectedIds, objects, updateObject])
+  }, [selectedIds, objectMap, updateObject])
 
   // --- Layer ordering ---
   const handleBringToFront = useCallback(() => {
@@ -310,7 +278,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     const minZ = nonFrameObjects.length > 0 ? Math.min(...nonFrameObjects.map(o => o.z_index)) : 0
     let offset = 1
     selectedIds.forEach(id => {
-      const obj = objects.find(o => o.id === id)
+      const obj = objectMap.get(id)
       if (!obj || obj.type === 'frame') return
       updateObject(id, { z_index: minZ - offset })
       offset++
@@ -349,7 +317,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   useEffect(() => {
     if (selectedIds.size === 0) return
     const firstId = Array.from(selectedIds)[0]!
-    const obj = objects.find((o) => o.id === firstId)
+    const obj = objectMap.get(firstId)
     if (!obj) return
 
     let color: string | undefined
@@ -361,7 +329,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     else if (obj.type === "frame") color = obj.data.backgroundColor
 
     if (color) setActiveColor(color)
-  }, [selectedIds, objects])
+  }, [selectedIds, objectMap])
 
   // Delete selected objects on Delete/Backspace key; duplicate with Cmd+D; Escape cancels connecting
   useEffect(() => {
@@ -514,38 +482,6 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, activeColor])
 
-  // --- Filtered object lists (by type for rendering) ---
-  const { stickyNotes, shapes, connectors, textElements, frames } = useMemo(
-    () => ({
-      stickyNotes: objects.filter(
-        (obj): obj is BoardObject & { type: 'sticky_note'; data: StickyNoteData } =>
-          obj.type === 'sticky_note'
-      ),
-      shapes: objects.filter(
-        (obj): obj is BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData } =>
-          obj.type === 'rectangle' || obj.type === 'circle' || obj.type === 'line'
-      ),
-      connectors: objects.filter(
-        (obj): obj is BoardObject & { type: 'connector'; data: ConnectorData } =>
-          obj.type === 'connector'
-      ),
-      textElements: objects.filter(
-        (obj): obj is BoardObject & { type: 'text'; data: TextData } =>
-          obj.type === 'text'
-      ),
-      frames: objects.filter(
-        (obj): obj is BoardObject & { type: 'frame'; data: FrameData } =>
-          obj.type === 'frame'
-      ),
-    }),
-    [objects]
-  )
-
-  // Sorted render order for z_index-based layering
-  const sortedObjects = useMemo(() =>
-    [...objects].sort((a, b) => a.z_index - b.z_index),
-    [objects]
-  )
 
   const handleCreateFrame = useCallback(async () => {
     await createObject({
@@ -556,10 +492,10 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       width: 400,
       height: 300,
       rotation: 0,
-      z_index: -(frames.length + 1),  // negative so frames stay behind all regular objects
+      z_index: -(objectCounts.frames + 1),  // negative so frames stay behind all regular objects
       data: { title: 'New Frame', backgroundColor: activeColor } satisfies FrameData,
     })
-  }, [boardId, createObject, cursorPos, frames.length, activeColor])
+  }, [boardId, createObject, cursorPos, objectCounts.frames, activeColor])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
@@ -663,18 +599,17 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   // Handle saving edited text
   const handleSaveEdit = useCallback((newText: string) => {
     if (!editingId) return
-    const note = stickyNotes.find(n => n.id === editingId)
-    if (note) {
-      void updateObject(editingId, { data: { text: newText, color: note.data.color } as StickyNoteData })
+    const obj = objectMap.get(editingId)
+    if (obj?.type === 'sticky_note') {
+      void updateObject(editingId, { data: { text: newText, color: (obj.data as StickyNoteData).color } as StickyNoteData })
       setEditingId(null)
       return
     }
-    const textElement = textElements.find(t => t.id === editingId)
-    if (textElement) {
-      void updateObject(editingId, { data: { ...textElement.data, text: newText } as TextData })
+    if (obj?.type === 'text') {
+      void updateObject(editingId, { data: { ...(obj.data as TextData), text: newText } as TextData })
     }
     setEditingId(null) // always close, even if object was deleted remotely
-  }, [editingId, stickyNotes, textElements, updateObject])
+  }, [editingId, objectMap, updateObject])
 
   return (
     <div
@@ -704,119 +639,33 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         }}
       >
         <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { setContextMenu(null); if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef}>
-        {/* Render all objects sorted by z_index */}
-        {sortedObjects.map((obj) => {
-          switch (obj.type) {
-            case 'frame':
-              return (
-                <Frame
-                  key={obj.id}
-                  object={obj as BoardObject & { type: 'frame'; data: FrameData }}
-                  onUpdate={updateObject}
-                  onSelect={handleObjectClick}
-                  isSelected={isSelected(obj.id)}
-                  onMount={handleNodeMount}
-                  onUnmount={handleNodeUnmount}
-                />
-              )
-            case 'connector':
-              return (
-                <Connector
-                  key={obj.id}
-                  object={obj as BoardObject & { type: 'connector'; data: ConnectorData }}
-                  allObjects={objects}
-                  isSelected={isSelected(obj.id)}
-                  onSelect={handleObjectClick}
-                />
-              )
-            case 'rectangle':
-            case 'circle':
-            case 'line':
-              return (
-                <Shape
-                  key={obj.id}
-                  object={obj as BoardObject & { type: 'rectangle' | 'circle' | 'line'; data: RectangleData | CircleData | LineData }}
-                  onUpdate={updateObject}
-                  onSelect={handleObjectClick}
-                  isSelected={isSelected(obj.id)}
-                  onMount={handleNodeMount}
-                  onUnmount={handleNodeUnmount}
-                />
-              )
-            case 'sticky_note':
-              return (
-                <StickyNote
-                  key={obj.id}
-                  object={obj as BoardObject & { type: 'sticky_note'; data: StickyNoteData }}
-                  onUpdate={updateObject}
-                  onSelect={handleObjectClick}
-                  isSelected={isSelected(obj.id)}
-                  isEditing={editingId === obj.id}
-                  onStartEdit={handleStartEdit}
-                  onMount={handleNodeMount}
-                  onUnmount={handleNodeUnmount}
-                />
-              )
-            case 'text':
-              return (
-                <TextElement
-                  key={obj.id}
-                  object={obj as BoardObject & { type: 'text'; data: TextData }}
-                  onUpdate={updateObject}
-                  onSelect={handleObjectClick}
-                  isSelected={isSelected(obj.id)}
-                  isEditing={editingId === obj.id}
-                  onStartEdit={handleStartEdit}
-                  onMount={handleNodeMount}
-                  onUnmount={handleNodeUnmount}
-                />
-              )
-            default:
-              return null
-          }
-        })}
-
-        <SelectionTransformer
+        <ObjectRenderer
+          sortedObjects={sortedObjects}
+          objectMap={objectMap}
+          selectedIds={selectedIds}
+          editingId={editingId}
+          connectorMode={connectorMode}
+          connectingCursorPos={connectingCursorPos}
+          cursors={cursors}
           selectedNodes={selectedNodes}
           transformVersion={transformVersion}
+          nodeRefs={nodeRefs}
+          isSelected={isSelected}
+          onUpdate={updateObject}
+          onSelect={handleObjectClick}
+          onMount={handleNodeMount}
+          onUnmount={handleNodeUnmount}
+          onStartEdit={handleStartEdit}
+          onStartConnect={handleStartConnect}
           onTransformEnd={handleTransformEnd}
         />
-
-        {/* Connection handle dots on selected objects */}
-        {!connectorMode && Array.from(selectedIds).map(id => {
-          const obj = objects.find(o => o.id === id)
-          if (!obj || obj.type === 'connector') return null
-          return (
-            <ConnectionHandles
-              key={`handles-${id}`}
-              object={obj}
-              node={nodeRefs.current.get(id)}
-              onStartConnect={handleStartConnect}
-            />
-          )
-        })}
-
-        {/* Temp connector line while connecting */}
-        {connectorMode && (
-          <TempConnectorLine
-            fromPoint={connectorMode.fromPoint}
-            toPoint={connectingCursorPos}
-          />
-        )}
-
-        {/* Remote cursors */}
-        {Array.from(cursors.values()).map((cursor) => (
-          <RemoteCursor key={cursor.userId} cursor={cursor} />
-        ))}
       </BoardStage>
       </div>
 
       {/* Text edit overlay */}
       {editingId && (
         <TextEditOverlayContent
-          editingId={editingId}
-          stickyNotes={stickyNotes}
-          textElements={textElements}
+          editingObject={objectMap.get(editingId)}
           stageTransform={stageTransform}
           onSave={handleSaveEdit}
           onClose={() => setEditingId(null)}
@@ -905,11 +754,11 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       {/* Hidden testing affordances */}
       <div
         data-testid="object-counts"
-        data-notes={stickyNotes.length}
-        data-shapes={shapes.length}
-        data-connectors={connectors.length}
-        data-text={textElements.length}
-        data-frames={frames.length}
+        data-notes={objectCounts.notes}
+        data-shapes={objectCounts.shapes}
+        data-connectors={objectCounts.connectors}
+        data-text={objectCounts.text}
+        data-frames={objectCounts.frames}
         data-total={objects.length}
         className="hidden"
       />

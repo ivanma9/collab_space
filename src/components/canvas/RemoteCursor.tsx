@@ -4,6 +4,7 @@
  * Shows a colored cursor with the user's name label
  */
 
+import { memo } from 'react'
 import { Group, Circle, Label, Tag, Text } from 'react-konva'
 import type { CursorPosition } from '../../lib/database.types'
 
@@ -11,7 +12,7 @@ interface RemoteCursorProps {
   cursor: CursorPosition
 }
 
-export function RemoteCursor({ cursor }: RemoteCursorProps) {
+export const RemoteCursor = memo(function RemoteCursor({ cursor }: RemoteCursorProps) {
   return (
     <Group x={cursor.x} y={cursor.y} data-testid={`remote-cursor-${cursor.userName}`}>
       {/* Cursor circle */}
@@ -45,4 +46,4 @@ export function RemoteCursor({ cursor }: RemoteCursorProps) {
       </Label>
     </Group>
   )
-}
+})

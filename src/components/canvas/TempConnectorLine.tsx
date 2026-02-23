@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Arrow } from "react-konva";
 
 interface TempConnectorLineProps {
@@ -5,7 +6,7 @@ interface TempConnectorLineProps {
 	toPoint: { x: number; y: number };
 }
 
-export function TempConnectorLine({
+export const TempConnectorLine = memo(function TempConnectorLine({
 	fromPoint,
 	toPoint,
 }: TempConnectorLineProps) {
@@ -21,4 +22,4 @@ export function TempConnectorLine({
 			listening={false}
 		/>
 	);
-}
+})

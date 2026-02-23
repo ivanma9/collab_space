@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react"
+import { memo, useEffect, useRef, useCallback } from "react"
 import { Circle } from "react-konva"
 import type Konva from "konva"
 
@@ -32,7 +32,7 @@ function getEdgeMidpoints(
 	]
 }
 
-export function ConnectionHandles({
+export const ConnectionHandles = memo(function ConnectionHandles({
 	object,
 	node,
 	onStartConnect,
@@ -153,4 +153,4 @@ export function ConnectionHandles({
 			))}
 		</>
 	)
-}
+})

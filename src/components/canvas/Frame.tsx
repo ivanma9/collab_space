@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, FrameData } from '../../lib/database.types'
@@ -14,7 +14,7 @@ interface FrameProps {
   onUnmount?: (id: string) => void
 }
 
-export function Frame({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: FrameProps) {
+export const Frame = memo(function Frame({ object, onUpdate, onSelect, isSelected, onMount, onUnmount }: FrameProps) {
   const groupRef = useRef<Konva.Group>(null)
   const lastDrag = useRef(0)
 
@@ -77,4 +77,4 @@ export function Frame({ object, onUpdate, onSelect, isSelected, onMount, onUnmou
       />
     </Group>
   )
-}
+})

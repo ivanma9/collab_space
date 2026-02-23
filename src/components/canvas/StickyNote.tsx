@@ -8,7 +8,7 @@
  * - Shadow for depth
  */
 
-import { useRef, useEffect } from 'react'
+import { memo, useRef, useEffect } from 'react'
 import { Group, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { BoardObject, StickyNoteData } from '../../lib/database.types'
@@ -24,7 +24,7 @@ interface StickyNoteProps {
   onUnmount?: (id: string) => void
 }
 
-export function StickyNote({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
+export const StickyNote = memo(function StickyNote({ object, onUpdate, onSelect, isSelected, isEditing, onStartEdit, onMount, onUnmount }: StickyNoteProps) {
   const groupRef = useRef<Konva.Group>(null)
 
   const onMountRef = useRef(onMount)
@@ -144,4 +144,4 @@ export function StickyNote({ object, onUpdate, onSelect, isSelected, isEditing, 
 
     </Group>
   )
-}
+})

@@ -5,6 +5,8 @@
  * This is an HTML overlay, not a Konva component.
  */
 
+import { memo } from 'react'
+
 interface CanvasHUDProps {
   cursorX: number
   cursorY: number
@@ -31,7 +33,7 @@ function MagnifierIcon() {
   )
 }
 
-export function CanvasHUD({ cursorX, cursorY, zoomPercent, onResetZoom }: CanvasHUDProps) {
+export const CanvasHUD = memo(function CanvasHUD({ cursorX, cursorY, zoomPercent, onResetZoom }: CanvasHUDProps) {
   const isAt100 = Math.round(zoomPercent) === 100
 
   return (
@@ -55,4 +57,4 @@ export function CanvasHUD({ cursorX, cursorY, zoomPercent, onResetZoom }: Canvas
       </button>
     </div>
   )
-}
+})

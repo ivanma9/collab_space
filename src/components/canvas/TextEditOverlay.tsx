@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 
 interface TextEditOverlayProps {
   text: string
@@ -14,7 +14,7 @@ interface TextEditOverlayProps {
   onClose: () => void
 }
 
-export function TextEditOverlay({ text, x, y, width, height, color, scale, fontSize = 14, padding = 8, onSave, onClose }: TextEditOverlayProps) {
+export const TextEditOverlay = memo(function TextEditOverlay({ text, x, y, width, height, color, scale, fontSize = 14, padding = 8, onSave, onClose }: TextEditOverlayProps) {
   const divRef = useRef<HTMLDivElement>(null)
   const cancelledRef = useRef(false)
 
@@ -82,4 +82,4 @@ export function TextEditOverlay({ text, x, y, width, height, color, scale, fontS
       />
     </div>
   )
-}
+})
