@@ -219,9 +219,6 @@ function ShapesFlyout({
 				title="Shapes"
 			>
 				{activeShapeIcon}
-				<span className="absolute bottom-1 right-1">
-					<ChevronDownIcon />
-				</span>
 			</button>
 
 			{/* Tooltip (only when flyout is closed) */}
