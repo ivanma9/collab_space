@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { OnlineUser } from "../../hooks/usePresence"
 import { getUserColor } from "../../lib/userColors"
 
@@ -42,6 +42,19 @@ export function BoardTopBar({
 	onSignOut,
 }: BoardTopBarProps) {
 	const [showShare, setShowShare] = useState(false)
+	const [showUserMenu, setShowUserMenu] = useState(false)
+	const userMenuRef = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		if (!showUserMenu) return
+		function handleClickOutside(e: MouseEvent) {
+			if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+				setShowUserMenu(false)
+			}
+		}
+		document.addEventListener("mousedown", handleClickOutside)
+		return () => document.removeEventListener("mousedown", handleClickOutside)
+	}, [showUserMenu])
 
 	return (
 		<div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between h-12 px-4 bg-white/90 backdrop-blur-sm border-b border-gray-200">
@@ -56,7 +69,7 @@ export function BoardTopBar({
 				</button>
 			</div>
 
-			{/* Right: share, presence, sign out */}
+			{/* Right: share, presence, user menu */}
 			<div className="flex items-center gap-3">
 				{/* Share */}
 				<div className="relative">
@@ -146,14 +159,31 @@ export function BoardTopBar({
 				{/* Divider */}
 				<div className="w-px h-6 bg-gray-200" />
 
-				{/* Sign out */}
-				<button
-					onClick={onSignOut}
-					className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
-					data-testid="sign-out-button"
-				>
-					{displayName}
-				</button>
+				{/* User menu */}
+				<div className="relative" ref={userMenuRef}>
+					<button
+						onClick={() => setShowUserMenu((v) => !v)}
+						className="text-xs text-gray-500 hover:text-gray-700 transition-colors font-medium"
+						data-testid="user-menu-button"
+					>
+						{displayName}
+					</button>
+
+					{showUserMenu && (
+						<div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-lg shadow-xl border border-gray-200 py-1">
+							<button
+								onClick={() => {
+									setShowUserMenu(false)
+									onSignOut()
+								}}
+								className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+								data-testid="sign-out-button"
+							>
+								Sign out
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	)
