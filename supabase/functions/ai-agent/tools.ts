@@ -176,6 +176,25 @@ export const tools = [
     }
   },
   {
+    name: "suggestFramework",
+    description: "Suggest a coaching framework template to the coach. The framework will appear as a clickable suggestion chip — it does NOT auto-apply. Use this when the conversation topic aligns with a known framework (e.g. goal-setting → GROW, strengths analysis → SWOT).",
+    input_schema: {
+      type: "object",
+      properties: {
+        frameworkId: {
+          type: "string",
+          enum: ["grow", "swot", "wheelOfLife", "values", "okr"],
+          description: "The template ID to suggest"
+        },
+        reason: {
+          type: "string",
+          description: "Brief explanation of why this framework fits the current discussion"
+        }
+      },
+      required: ["frameworkId", "reason"]
+    }
+  },
+  {
     name: "askClarification",
     description: "Ask the user a clarifying question when their request is ambiguous. Provide 2-4 suggestion options that become clickable buttons in the UI.",
     input_schema: {

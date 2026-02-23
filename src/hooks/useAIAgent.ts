@@ -254,12 +254,20 @@ export function useAIAgent({
 						),
 					)
 
-					// Suggest adding connectors if multiple objects were created without any
-					const createNames = ["createStickyNote", "createShape", "createFrame", "createTextBox"]
-					const creates = response.toolCalls.filter((c) => createNames.includes(c.name))
-					const hasConnectors = response.toolCalls.some((c) => c.name === "createConnector")
-					if (creates.length >= 2 && !hasConnectors) {
-						setSuggestions(["Connect these with arrows", "Add dashed connectors"])
+					// Detect suggestFramework tool calls and push apply: chips
+					const frameworkSuggestions = response.toolCalls
+						.filter((c) => c.name === "suggestFramework")
+						.map((c) => `apply:${(c.input as Record<string, string>)["frameworkId"]}`)
+					if (frameworkSuggestions.length > 0) {
+						setSuggestions(frameworkSuggestions)
+					} else {
+						// Suggest adding connectors if multiple objects were created without any
+						const createNames = ["createStickyNote", "createShape", "createFrame", "createTextBox"]
+						const creates = response.toolCalls.filter((c) => createNames.includes(c.name))
+						const hasConnectors = response.toolCalls.some((c) => c.name === "createConnector")
+						if (creates.length >= 2 && !hasConnectors) {
+							setSuggestions(["Connect these with arrows", "Add dashed connectors"])
+						}
 					}
 				}
 			} catch {
@@ -506,6 +514,8 @@ export function useAIAgent({
 			case "recallContext":
 				// recallContext is informational — the AI uses journeyContext from the system prompt
 				// No board action needed; the AI will respond with recalled info in its message
+			case "suggestFramework":
+				// Informational only — no board action. Suggestion chips are handled after execution.
 				return
 			case "getBoardState":
 				return

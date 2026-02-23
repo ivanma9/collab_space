@@ -25,7 +25,7 @@ import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
 import { useRealtimeSync } from '../hooks/useRealtimeSync'
 import { useSelection } from '../hooks/useSelection'
-import { useAIAgent } from '../hooks/useAIAgent'
+import { useAIAgent, findOpenArea } from '../hooks/useAIAgent'
 import { supabase } from '../lib/supabase'
 import type {
   BoardObject,
@@ -38,6 +38,7 @@ import type {
   StickyNoteData,
   TextData,
 } from '../lib/database.types'
+import { COACHING_TEMPLATES } from '../lib/templates'
 
 import { LoginPage } from './LoginPage'
 
@@ -687,14 +688,26 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     selectMultiple(selected.map(o => o.id))  // always call — empty array clears selection
   }, [objects, selectMultiple])
 
+  // --- Viewport center helper (canvas coordinates) ---
+  const getViewportCenter = useCallback(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    return {
+      x: (-stageTransform.x + vw / 2) / stageTransform.scale,
+      y: (-stageTransform.y + vh / 2) / stageTransform.scale,
+    }
+  }, [stageTransform])
+
   // --- Object creation handlers ---
-  const handleCreateStickyNote = useCallback(async () => {
+  const handleCreateStickyNote = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'sticky_note',
-      x: cursorPos.x || 100,
-      y: cursorPos.y || 100,
+      x: center.x - 100,
+      y: center.y - 75,
       width: 200,
       height: 150,
       rotation: 0,
@@ -704,15 +717,17 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         color: activeColor,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
+  }, [boardId, createObject, objects.length, activeColor, getViewportCenter, activeSessionRef])
 
-  const handleCreateRectangle = useCallback(async () => {
+  const handleCreateRectangle = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'rectangle',
-      x: cursorPos.x || 150,
-      y: cursorPos.y || 150,
+      x: center.x - 100,
+      y: center.y - 75,
       width: 200,
       height: 150,
       rotation: 0,
@@ -723,15 +738,17 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
+  }, [boardId, createObject, objects.length, activeColor, getViewportCenter, activeSessionRef])
 
-  const handleCreateCircle = useCallback(async () => {
+  const handleCreateCircle = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'circle',
-      x: cursorPos.x || 200,
-      y: cursorPos.y || 200,
+      x: center.x - 100,
+      y: center.y - 100,
       width: 200,
       height: 200,
       rotation: 0,
@@ -743,15 +760,17 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
+  }, [boardId, createObject, objects.length, activeColor, getViewportCenter, activeSessionRef])
 
-  const handleCreateLine = useCallback(async () => {
+  const handleCreateLine = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'line',
-      x: cursorPos.x || 100,
-      y: cursorPos.y || 100,
+      x: center.x - 100,
+      y: center.y - 50,
       width: 200,
       height: 100,
       rotation: 0,
@@ -762,38 +781,41 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 4,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
+  }, [boardId, createObject, objects.length, activeColor, getViewportCenter, activeSessionRef])
 
-  const handleCreateText = useCallback(async () => {
+  const handleCreateText = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'text',
-      x: cursorPos.x || 300,
-      y: cursorPos.y || 300,
+      x: center.x - 100,
+      y: center.y - 20,
       width: 200,
       height: 40,
       rotation: 0,
       z_index: objectsRef.current.length,
-      data: { text: 'New text', fontSize: 18, color: activeColor } satisfies TextData,
+      data: { text: 'New text', fontSize: 18, color: '#333333' } satisfies TextData,
     })
-  }, [boardId, createObject, cursorPos, activeColor, activeSessionRef])
+  }, [boardId, createObject, getViewportCenter, activeSessionRef])
 
-
-  const handleCreateFrame = useCallback(async () => {
+  const handleCreateFrame = useCallback(async (id?: string) => {
+    const center = getViewportCenter()
     await createObject({
+      id,
       board_id: boardId,
       session_id: activeSessionRef.current,
       type: 'frame',
-      x: cursorPos.x || 100,
-      y: cursorPos.y || 100,
+      x: center.x - 200,
+      y: center.y - 150,
       width: 400,
       height: 300,
       rotation: 0,
       z_index: -(objectCounts.frames + 1),  // negative so frames stay behind all regular objects
       data: { title: 'New Frame', backgroundColor: activeColor } satisfies FrameData,
     })
-  }, [boardId, createObject, cursorPos, objectCounts.frames, activeColor, activeSessionRef])
+  }, [boardId, createObject, objectCounts.frames, activeColor, getViewportCenter, activeSessionRef])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
@@ -876,6 +898,38 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     journeyContext,
   })
   generateSummaryRef.current = generateSessionSummary
+
+  // --- Apply coaching framework template ---
+  const handleApplyTemplate = useCallback(async (templateId: string) => {
+    const template = COACHING_TEMPLATES.find(t => t.id === templateId)
+    if (!template) return
+
+    const openArea = findOpenArea(objects)
+    const baseX = openArea.x
+    const baseY = openArea.y
+
+    // Sort slots: frames first (negative zIndexOffset) so they render behind
+    const sorted = [...template.slots].sort((a, b) => a.zIndexOffset - b.zIndexOffset)
+
+    for (const slot of sorted) {
+      const id = crypto.randomUUID()
+      const baseZ = objects.length
+      await createObject({
+        id,
+        board_id: boardId,
+        type: slot.type,
+        x: baseX + slot.offsetX,
+        y: baseY + slot.offsetY,
+        width: slot.width,
+        height: slot.height,
+        rotation: 0,
+        z_index: slot.type === 'frame'
+          ? slot.zIndexOffset - objectCounts.frames
+          : baseZ + slot.zIndexOffset,
+        data: slot.data as unknown as BoardObject['data'],
+      })
+    }
+  }, [objects, createObject, boardId, objectCounts.frames])
 
   // --- Toolbar tool selection ---
   const handleToolSelect = useCallback((tool: typeof activeTool) => {
@@ -1023,6 +1077,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         isProcessing={aiIsProcessing}
         onSendMessage={aiSendMessage}
         onClearChat={aiClearChat}
+        onApplyTemplate={handleApplyTemplate}
       />
 
       {/* AI Panel toggle button */}
@@ -1096,6 +1151,8 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         isLoading={isLoading}
         activeColor={activeColor}
         onColorChange={handleColorChange}
+        templates={COACHING_TEMPLATES}
+        onApplyTemplate={handleApplyTemplate}
       />
 
       {/* Error display */}

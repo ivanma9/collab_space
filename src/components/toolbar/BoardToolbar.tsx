@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import type { CoachingTemplate } from "../../lib/templates"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,6 +23,8 @@ interface BoardToolbarProps {
 	isLoading: boolean
 	activeColor: string
 	onColorChange: (color: string) => void
+	templates?: Array<CoachingTemplate>
+	onApplyTemplate?: (templateId: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +351,89 @@ function ColorButton({
 }
 
 // ---------------------------------------------------------------------------
+// Framework Flyout
+// ---------------------------------------------------------------------------
+
+function TemplateIcon() {
+	return (
+		<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+			<rect x="3" y="3" width="7" height="7" />
+			<rect x="14" y="3" width="7" height="7" />
+			<rect x="3" y="14" width="7" height="7" />
+			<rect x="14" y="14" width="7" height="7" />
+		</svg>
+	)
+}
+
+function FrameworkFlyout({
+	templates,
+	onApplyTemplate,
+	isLoading,
+}: {
+	templates: CoachingTemplate[]
+	onApplyTemplate: (templateId: string) => void
+	isLoading: boolean
+}) {
+	const [open, setOpen] = useState(false)
+	const ref = useRef<HTMLDivElement>(null)
+
+	useEffect(() => {
+		if (!open) return
+		const handler = (e: MouseEvent) => {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+		}
+		document.addEventListener("mousedown", handler)
+		return () => document.removeEventListener("mousedown", handler)
+	}, [open])
+
+	return (
+		<div ref={ref} className="relative group">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				disabled={isLoading}
+				data-testid="framework-flyout-trigger"
+				className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-150 ${
+					isLoading
+						? "text-gray-300 cursor-not-allowed"
+						: "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+				}`}
+				title="Coaching Frameworks"
+			>
+				<TemplateIcon />
+			</button>
+
+			{!open && (
+				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-gray-800 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150">
+					Frameworks
+				</div>
+			)}
+
+			{open && (
+				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-1.5 w-56">
+					<div className="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+						Coaching Frameworks
+					</div>
+					{templates.map((t) => (
+						<button
+							key={t.id}
+							onClick={() => {
+								onApplyTemplate(t.id)
+								setOpen(false)
+							}}
+							className="flex flex-col w-full text-left px-3 py-2 rounded-lg text-sm transition-all text-gray-600 hover:bg-purple-50 hover:text-purple-600"
+							data-testid={`framework-${t.id}`}
+						>
+							<span className="font-medium text-xs">{t.name}</span>
+							<span className="text-[10px] text-gray-400">{t.description}</span>
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	)
+}
+
+// ---------------------------------------------------------------------------
 // Main Toolbar
 // ---------------------------------------------------------------------------
 
@@ -360,6 +446,8 @@ export function BoardToolbar({
 	isLoading,
 	activeColor,
 	onColorChange,
+	templates,
+	onApplyTemplate,
 }: BoardToolbarProps) {
 	const handleToolClick = useCallback(
 		(tool: Tool) => {
@@ -420,6 +508,16 @@ export function BoardToolbar({
 
 				<Divider />
 				<ColorButton activeColor={activeColor} onColorChange={onColorChange} />
+				{templates && onApplyTemplate && (
+					<>
+						<Divider />
+						<FrameworkFlyout
+							templates={templates}
+							onApplyTemplate={onApplyTemplate}
+							isLoading={isLoading}
+						/>
+					</>
+				)}
 				<Divider />
 				{/* Delete */}
 				<ToolButton
