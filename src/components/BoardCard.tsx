@@ -127,6 +127,21 @@ function drawPreview(ctx: CanvasRenderingContext2D, objects: BoardObject[]) {
       ctx.fillStyle = d.color
       ctx.font = `${Math.max(7, (d.fontSize ?? 14) * scale)}px ${d.fontFamily ?? 'Arial'}`
       ctx.fillText(d.text, x, y + 12 * scale, w)
+
+    } else if (obj.type === 'goal') {
+      const d = obj.data as { title: string; status: string }
+      const statusColors: Record<string, string> = {
+        active: '#FCD34D', completed: '#86EFAC', stalled: '#FDBA74', dropped: '#D1D5DB',
+      }
+      ctx.fillStyle = '#FFFBEB'
+      ctx.strokeStyle = statusColors[d.status] ?? '#D1D5DB'
+      ctx.lineWidth = Math.max(0.5, 2 * scale)
+      roundRect(ctx, x, y, w, h, 3)
+      ctx.fill()
+      ctx.stroke()
+      ctx.fillStyle = '#1F2937'
+      ctx.font = `bold ${Math.max(7, 9 * scale)}px Arial`
+      ctx.fillText(d.title, x + 4, y + 12 * scale, w - 8)
     }
 
     ctx.restore()

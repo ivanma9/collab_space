@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
   return await traced(async (span) => {
 
-  const { messages: incomingMessages, boardState = [], boardId, openArea } =
+  const { messages: incomingMessages, boardState = [], boardId, openArea, journeyContext } =
     await req.json()
 
   const boardContext =
@@ -51,6 +51,37 @@ All operations — creation, moving, layout, and complex commands — MUST use t
 Only place near existing objects if the user explicitly says so (e.g. "next to the SWOT frame", "below the red note").`
     : ""
 
+  const sessionNum = journeyContext?.currentSessionNumber
+  const sessionFrameX = sessionNum != null ? (sessionNum - 1) * 2000 : null
+  const sessionBounds = sessionFrameX != null
+    ? { minX: sessionFrameX + 40, maxX: sessionFrameX + 1760, minY: 60, maxY: 1160 }
+    : null
+
+  const journeyPrompt = journeyContext
+    ? `\n\nCOACHING JOURNEY CONTEXT:
+You are assisting in a coaching journey for client "${journeyContext.clientName || 'the client'}".
+Current session: #${sessionNum || '?'}
+${sessionBounds ? `\nSESSION FRAME BOUNDARY (CRITICAL):
+All objects you create MUST be placed inside the current session frame.
+- X must be between ${sessionBounds.minX} and ${sessionBounds.maxX}
+- Y must be between ${sessionBounds.minY} and ${sessionBounds.maxY}
+- NEVER place objects outside these bounds. The session frame is the workspace for this session.
+- Keep sticky notes at 200x200, goals at 280x200 — ensure they fit within the frame.` : ''}
+${journeyContext.activeGoals?.length ? `\nACTIVE GOALS:\n${journeyContext.activeGoals.map((g: any) => `- ${g.title} (${g.status})${g.commitments?.length ? ': ' + g.commitments.join(', ') : ''}`).join('\n')}` : ''}
+${journeyContext.recentSummaries?.length ? `\nRECENT SESSION SUMMARIES:\n${journeyContext.recentSummaries.map((s: any) => `Session #${s.session_number}: ${s.summary}`).join('\n')}` : ''}
+${journeyContext.aiMemory ? `\nKEY THEMES FROM PAST SESSIONS: ${journeyContext.aiMemory.key_themes?.join(', ') || 'none yet'}
+CLIENT NOTES: ${journeyContext.aiMemory.client_notes || 'none yet'}` : ''}
+
+COACHING BEHAVIOR:
+- You are a collaborative coaching assistant. Help the coach organize ideas, track goals, and maintain session continuity.
+- ALL objects you create must go inside the current session frame. Never place content outside it.
+- When the coach discusses goals, commitments, or action items, proactively suggest creating Goal Cards using the createGoal tool.
+- When asked to summarize or wrap up a session, use the createSessionSummary tool.
+- When the coach asks about past sessions or topics, use the recallContext tool to search AI memory.
+- Use updateGoalStatus when goals are discussed as complete, stalled, or dropped.
+- Reference past session context naturally in your responses to maintain continuity.`
+    : ''
+
   const systemPrompt = `You are an AI assistant that controls a collaborative whiteboard through a conversational chat interface.
 
 COORDINATE SYSTEM:
@@ -65,6 +96,7 @@ ${openAreaGuide}
 
 CURRENT BOARD STATE:
 ${boardContext}
+${journeyPrompt}
 
 CONVERSATION BEHAVIOR:
 - If the user's request is clear and specific enough to execute (you are 80%+ confident in what to create/modify), proceed with tool calls immediately.
