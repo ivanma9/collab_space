@@ -4,6 +4,7 @@ import type Konva from 'konva'
 import { ConnectionHandles } from './ConnectionHandles'
 import { Connector } from './Connector'
 import { Frame } from './Frame'
+import { GoalCard } from './GoalCard'
 import { RemoteCursor } from './RemoteCursor'
 import { Shape } from './Shape'
 import { StickyNote } from './StickyNote'
@@ -14,6 +15,7 @@ import type {
   BoardObject,
   ConnectorData,
   FrameData,
+  GoalData,
   StickyNoteData,
   RectangleData,
   CircleData,
@@ -128,6 +130,18 @@ export const ObjectRenderer = memo(function ObjectRenderer({
                 isSelected={isSelected(obj.id)}
                 isEditing={editingId === obj.id}
                 onStartEdit={onStartEdit}
+                onMount={onMount}
+                onUnmount={onUnmount}
+              />
+            )
+          case 'goal':
+            return (
+              <GoalCard
+                key={obj.id}
+                object={obj as BoardObject & { type: 'goal'; data: GoalData }}
+                onUpdate={onUpdate}
+                onSelect={onSelect}
+                isSelected={isSelected(obj.id)}
                 onMount={onMount}
                 onUnmount={onUnmount}
               />

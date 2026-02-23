@@ -2,7 +2,7 @@
  * TypeScript types for Supabase database schema
  *
  * These types provide type safety when querying the database.
- * They match the schema defined in supabase/migrations/001_initial_schema.sql
+ * They match the schema defined in supabase/migrations/
  */
 
 export type Json =
@@ -13,6 +13,10 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type BoardType = 'regular' | 'journey'
+export type SessionStatus = 'active' | 'completed'
+export type GoalStatus = 'active' | 'completed' | 'stalled' | 'dropped'
+
 export type Database = {
   public: {
     Tables: {
@@ -21,6 +25,8 @@ export type Database = {
           id: string
           name: string
           invite_code: string
+          type: BoardType
+          client_name: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -29,6 +35,8 @@ export type Database = {
           id?: string
           name?: string
           invite_code?: string
+          type?: BoardType
+          client_name?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -37,6 +45,8 @@ export type Database = {
           id?: string
           name?: string
           invite_code?: string
+          type?: BoardType
+          client_name?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -71,7 +81,7 @@ export type Database = {
         Row: {
           id: string
           board_id: string
-          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
+          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line' | 'goal'
           x: number
           y: number
           width: number
@@ -79,6 +89,7 @@ export type Database = {
           rotation: number
           z_index: number
           data: Json
+          session_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -86,7 +97,7 @@ export type Database = {
         Insert: {
           id?: string
           board_id: string
-          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
+          type: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line' | 'goal'
           x?: number
           y?: number
           width?: number
@@ -94,6 +105,7 @@ export type Database = {
           rotation?: number
           z_index?: number
           data?: Json
+          session_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -101,7 +113,7 @@ export type Database = {
         Update: {
           id?: string
           board_id?: string
-          type?: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line'
+          type?: 'sticky_note' | 'shape' | 'frame' | 'connector' | 'text' | 'rectangle' | 'circle' | 'line' | 'goal'
           x?: number
           y?: number
           width?: number
@@ -109,8 +121,69 @@ export type Database = {
           rotation?: number
           z_index?: number
           data?: Json
+          session_id?: string | null
           created_by?: string | null
           created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      board_sessions: {
+        Row: {
+          id: string
+          board_id: string
+          session_number: number
+          started_at: string
+          ended_at: string | null
+          summary: string | null
+          status: SessionStatus
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          session_number: number
+          started_at?: string
+          ended_at?: string | null
+          summary?: string | null
+          status?: SessionStatus
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          board_id?: string
+          session_number?: number
+          started_at?: string
+          ended_at?: string | null
+          summary?: string | null
+          status?: SessionStatus
+          created_at?: string
+        }
+        Relationships: []
+      }
+      session_ai_context: {
+        Row: {
+          id: string
+          board_id: string
+          key_themes: string[]
+          client_notes: string
+          goal_history: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          key_themes?: string[]
+          client_notes?: string
+          goal_history?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          board_id?: string
+          key_themes?: string[]
+          client_notes?: string
+          goal_history?: Json
           updated_at?: string
         }
         Relationships: []
@@ -147,6 +220,7 @@ export interface BaseBoardObject {
   height: number
   rotation: number
   z_index: number
+  session_id?: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -226,6 +300,18 @@ export interface TextData {
 }
 
 /**
+ * Goal specific data for coaching journeys
+ */
+export interface GoalData {
+  title: string
+  status: GoalStatus
+  commitments: string[]
+  due_date?: string
+  created_session_id?: string
+  completed_session_id?: string
+}
+
+/**
  * Discriminated union for type-safe board objects
  *
  * Usage:
@@ -243,11 +329,22 @@ export type BoardObject =
   | (BaseBoardObject & { type: 'rectangle'; data: RectangleData })
   | (BaseBoardObject & { type: 'circle'; data: CircleData })
   | (BaseBoardObject & { type: 'line'; data: LineData })
+  | (BaseBoardObject & { type: 'goal'; data: GoalData })
 
 /**
  * Board type
  */
 export type Board = Database['public']['Tables']['boards']['Row']
+
+/**
+ * Board session type
+ */
+export type BoardSession = Database['public']['Tables']['board_sessions']['Row']
+
+/**
+ * Session AI context type
+ */
+export type SessionAIContext = Database['public']['Tables']['session_ai_context']['Row']
 
 /**
  * Board member type

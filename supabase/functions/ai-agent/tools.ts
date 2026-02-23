@@ -192,5 +192,67 @@ export const tools = [
       },
       required: ["question", "suggestions"]
     }
+  },
+  {
+    name: "createGoal",
+    description: "Create a goal card for tracking coaching goals, commitments, and progress",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Short ref key for connector linking" },
+        title: { type: "string", description: "Goal title" },
+        commitments: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of specific commitments or action items for this goal"
+        },
+        due_date: { type: "string", description: "Optional due date in ISO format (YYYY-MM-DD)" },
+        x: { type: "number" },
+        y: { type: "number" }
+      },
+      required: ["title", "commitments", "x", "y"]
+    }
+  },
+  {
+    name: "updateGoalStatus",
+    description: "Update the status of an existing goal (active, completed, stalled, or dropped)",
+    input_schema: {
+      type: "object",
+      properties: {
+        objectId: { type: "string", description: "The ID of the goal object to update" },
+        status: { type: "string", enum: ["active", "completed", "stalled", "dropped"], description: "New status for the goal" },
+        note: { type: "string", description: "Optional note explaining the status change" }
+      },
+      required: ["objectId", "status"]
+    }
+  },
+  {
+    name: "createSessionSummary",
+    description: "Generate a structured summary of the current coaching session based on objects created and discussed. Creates a summary sticky note on the board.",
+    input_schema: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "The session summary text" },
+        keyThemes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Key themes identified during the session"
+        },
+        x: { type: "number" },
+        y: { type: "number" }
+      },
+      required: ["summary", "keyThemes", "x", "y"]
+    }
+  },
+  {
+    name: "recallContext",
+    description: "Search through past session summaries and AI memory to recall information from previous coaching sessions by topic",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "The topic or keyword to search for in past sessions" }
+      },
+      required: ["topic"]
+    }
   }
 ]

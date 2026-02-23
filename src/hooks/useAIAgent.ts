@@ -68,6 +68,67 @@ export const SHAPE_COLORS: Record<string, string> = {
 	white: "#FFFFFF",
 }
 
+export interface JourneyContext {
+	clientName?: string
+	currentSessionNumber?: number
+	activeGoals?: Array<{ title: string; status: string; commitments?: string[] }>
+	recentSummaries?: Array<{ session_number: number; summary: string }>
+	aiMemory?: { key_themes?: string[]; client_notes?: string } | null
+}
+
+const SESSION_ZONE_WIDTH = 1800
+const SESSION_ZONE_HEIGHT = 1200
+const SESSION_ZONE_SPACING = 2000
+const SESSION_ZONE_PADDING = 40
+
+/** Compute the open area within a session frame for AI object placement */
+function getSessionOpenArea(
+	sessionNumber: number,
+	objects: BoardObject[],
+): { x: number; y: number; width: number; height: number } {
+	const frameX = (sessionNumber - 1) * SESSION_ZONE_SPACING
+	const frameY = 0
+	// Find objects already inside this session zone
+	const zoneObjects = objects.filter(
+		(o) =>
+			o.type !== "connector" &&
+			o.x >= frameX &&
+			o.x < frameX + SESSION_ZONE_WIDTH &&
+			o.y >= frameY &&
+			o.y < frameY + SESSION_ZONE_HEIGHT,
+	)
+	if (zoneObjects.length === 0) {
+		// Empty zone — start after the title bar area
+		return {
+			x: frameX + SESSION_ZONE_PADDING,
+			y: frameY + 80,
+			width: SESSION_ZONE_WIDTH - SESSION_ZONE_PADDING * 2,
+			height: SESSION_ZONE_HEIGHT - 80 - SESSION_ZONE_PADDING,
+		}
+	}
+	// Find rightmost + bottommost occupied point within the zone
+	let maxX = -Infinity
+	let maxY = -Infinity
+	for (const obj of zoneObjects) {
+		maxX = Math.max(maxX, obj.x + obj.width)
+		maxY = Math.max(maxY, obj.y + obj.height)
+	}
+	// Try placing to the right of existing content
+	const rightX = maxX + 20
+	const remainingWidth = frameX + SESSION_ZONE_WIDTH - SESSION_ZONE_PADDING - rightX
+	if (remainingWidth >= 200) {
+		return { x: rightX, y: frameY + 80, width: remainingWidth, height: SESSION_ZONE_HEIGHT - 80 - SESSION_ZONE_PADDING }
+	}
+	// Fall back to below existing content
+	const belowY = maxY + 20
+	return {
+		x: frameX + SESSION_ZONE_PADDING,
+		y: belowY,
+		width: SESSION_ZONE_WIDTH - SESSION_ZONE_PADDING * 2,
+		height: Math.max(SESSION_ZONE_HEIGHT - belowY + frameY, 400),
+	}
+}
+
 export interface UseAIAgentOptions {
 	boardId: string
 	objects: BoardObject[]
@@ -80,6 +141,7 @@ export interface UseAIAgentOptions {
 		},
 	) => Promise<void>
 	updateObject: (id: string, updates: Partial<BoardObject>) => Promise<void>
+	journeyContext?: JourneyContext | null
 }
 
 export function useAIAgent({
@@ -87,6 +149,7 @@ export function useAIAgent({
 	objects,
 	createObject,
 	updateObject,
+	journeyContext,
 }: UseAIAgentOptions) {
 	const [messages, setMessages] = useState<AIChatMessage[]>([])
 	const [isProcessing, setIsProcessing] = useState(false)
@@ -121,7 +184,10 @@ export function useAIAgent({
 			try {
 				const allMessages = [...messagesRef.current, userMsg]
 				const apiMessages = buildApiMessages(allMessages)
-				const openArea = findOpenArea(objectsRef.current)
+				const openArea =
+					journeyContext?.currentSessionNumber != null
+						? getSessionOpenArea(journeyContext.currentSessionNumber, objectsRef.current)
+						: findOpenArea(objectsRef.current)
 				const boardState = objectsRef.current.map((obj) => ({
 					id: obj.id,
 					type: obj.type,
@@ -140,6 +206,7 @@ export function useAIAgent({
 							boardState,
 							boardId,
 							openArea,
+							journeyContext: journeyContext ?? undefined,
 						},
 					},
 				)
@@ -392,6 +459,54 @@ export function useAIAgent({
 					fillColor: colorHex,
 				})
 			}
+			case "createGoal":
+				return createObject({
+					id: input.id,
+					board_id: boardId,
+					type: "goal",
+					x: input.x,
+					y: input.y,
+					width: 280,
+					height: 200,
+					rotation: 0,
+					z_index: zIndex,
+					data: {
+						title: input.title,
+						status: "active",
+						commitments: input.commitments ?? [],
+						due_date: input.due_date ?? undefined,
+					},
+				})
+			case "updateGoalStatus": {
+				const goal = currentObjects.find((o) => o.id === input.objectId)
+				if (!goal) return
+				return updateObject(input.objectId, {
+					data: {
+						...(goal.data as any),
+						status: input.status,
+					},
+				})
+			}
+			case "createSessionSummary":
+				return createObject({
+					id: input.id,
+					board_id: boardId,
+					type: "sticky_note",
+					x: input.x,
+					y: input.y,
+					width: 300,
+					height: 300,
+					rotation: 0,
+					z_index: zIndex,
+					data: {
+						text: `📋 Session Summary\n\n${input.summary}\n\n🏷️ Themes: ${(input.keyThemes ?? []).join(", ")}`,
+						color: "#E8F5E9",
+					},
+				})
+			case "recallContext":
+				// recallContext is informational — the AI uses journeyContext from the system prompt
+				// No board action needed; the AI will respond with recalled info in its message
+				return
 			case "getBoardState":
 				return
 			case "bulkCreateObjects": {
@@ -470,6 +585,99 @@ export function useAIAgent({
 		}
 	}
 
+	/**
+	 * Generate a structured session summary via the AI agent.
+	 * Returns { summary, keyThemes } or null if AI call fails.
+	 * Does NOT add to chat history — this is a silent background call.
+	 */
+	const generateSessionSummary = useCallback(
+		async (): Promise<{ summary: string; keyThemes: string[] } | null> => {
+			try {
+				const sessionNum = journeyContext?.currentSessionNumber
+				const openArea =
+					sessionNum != null
+						? getSessionOpenArea(sessionNum, objectsRef.current)
+						: findOpenArea(objectsRef.current)
+
+				// Filter to only objects within the active session frame
+				const allObjects = objectsRef.current
+				const sessionObjects =
+					sessionNum != null
+						? allObjects.filter((obj) => {
+								// Include objects spatially inside the session zone
+								const frameX = (sessionNum - 1) * SESSION_ZONE_SPACING
+								const inZone =
+									obj.x >= frameX &&
+									obj.x < frameX + SESSION_ZONE_WIDTH &&
+									obj.y < SESSION_ZONE_HEIGHT
+								// Also include connectors that reference session objects
+								if (obj.type === "connector") {
+									const d = obj.data as { fromId?: string; toId?: string }
+									return allObjects.some(
+										(o) =>
+											(o.id === d.fromId || o.id === d.toId) &&
+											o.x >= frameX &&
+											o.x < frameX + SESSION_ZONE_WIDTH,
+									)
+								}
+								return inZone
+							})
+						: allObjects
+
+				const boardState = sessionObjects
+					.filter((obj) => obj.type !== "frame") // exclude the session frame itself
+					.map((obj) => ({
+						id: obj.id,
+						type: obj.type,
+						x: obj.x,
+						y: obj.y,
+						width: obj.width,
+						height: obj.height,
+						data: obj.data,
+					}))
+
+				const prompt =
+					"Please summarize this coaching session. Review all the objects shown — sticky notes, goals, and text — and create a concise session summary that captures: key topics discussed, decisions made, goals created or updated, and action items. Use the createSessionSummary tool with your summary and key themes."
+
+				const { data, error: fnError } = await supabase.functions.invoke(
+					"ai-agent",
+					{
+						body: {
+							messages: [{ role: "user", content: prompt }],
+							boardState,
+							boardId,
+							openArea,
+							journeyContext: journeyContext ?? undefined,
+						},
+					},
+				)
+				if (fnError || !data) return null
+
+				const response = data as AIAgentResponse
+				if (response.type !== "execution") return null
+
+				const summaryCall = response.toolCalls.find(
+					(c) => c.name === "createSessionSummary",
+				)
+				if (!summaryCall) return null
+
+				const input = summaryCall.input as {
+					summary: string
+					keyThemes: string[]
+					x: number
+					y: number
+				}
+				return {
+					summary: input.summary,
+					keyThemes: input.keyThemes ?? [],
+				}
+			} catch {
+				return null
+			}
+		},
+		[boardId, journeyContext],
+	)
+
 	const clearChat = useCallback(() => {
 		setMessages([])
 		setSuggestions([])
@@ -481,5 +689,6 @@ export function useAIAgent({
 		isProcessing,
 		sendMessage,
 		clearChat,
+		generateSessionSummary,
 	}
 }

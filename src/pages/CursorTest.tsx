@@ -18,6 +18,8 @@ import { CanvasHUD } from '../components/canvas/CanvasHUD'
 import { ContextMenu } from '../components/canvas/ContextMenu'
 import { BoardToolbar } from '../components/toolbar/BoardToolbar'
 import { BoardTopBar } from '../components/toolbar/BoardTopBar'
+import { TimelineStrip } from '../components/journey/TimelineStrip'
+import { GoalsSidebar } from '../components/journey/GoalsSidebar'
 import { useAuth } from '../contexts/AuthContext'
 import { useCursors } from '../hooks/useCursors'
 import { usePresence } from '../hooks/usePresence'
@@ -27,8 +29,12 @@ import { useAIAgent } from '../hooks/useAIAgent'
 import { supabase } from '../lib/supabase'
 import type {
   BoardObject,
+  BoardSession,
+  BoardType,
   ConnectorData,
   FrameData,
+  GoalData,
+  GoalStatus,
   StickyNoteData,
   TextData,
 } from '../lib/database.types'
@@ -96,6 +102,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [stageTransform, setStageTransform] = useState({ x: 0, y: 0, scale: 1 })
+  const [panTo, setPanTo] = useState<{ x: number; y: number; scale: number; version: number } | undefined>(undefined)
   const [transformVersion, setTransformVersion] = useState(0)
   const [connectorMode, setConnectorMode] = useState<{ fromId: string; fromPoint: { x: number; y: number } } | null>(null)
   const [connectingCursorPos, setConnectingCursorPos] = useState({ x: 0, y: 0 })
@@ -104,18 +111,93 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const resetZoomRef = useRef<(() => void) | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
-  // --- Fetch invite code for sharing ---
+  // --- Journey/session state ---
+  const [boardType, setBoardType] = useState<BoardType>('regular')
+  const [boardCreatedBy, setBoardCreatedBy] = useState<string | null>(null)
+  const [clientName, setClientName] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<BoardSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [goalsSidebarOpen, setGoalsSidebarOpen] = useState(false)
+
+  const isJourney = boardType === 'journey'
+  const isCoach = boardCreatedBy === userId
+  const hasActiveSession = sessions.some(s => s.status === 'active')
+
+  // --- Fetch board info (invite code + type) ---
   useEffect(() => {
-    const fetchInvite = async () => {
+    const fetchBoard = async () => {
       const { data } = await supabase
         .from('boards')
-        .select('invite_code')
+        .select('invite_code, type, client_name, created_by')
         .eq('id', boardId)
         .single()
-      if (data) setInviteCode(data.invite_code)
+      if (data) {
+        setInviteCode(data.invite_code)
+        setBoardType((data.type as BoardType) ?? 'regular')
+        setBoardCreatedBy(data.created_by ?? null)
+        setClientName(data.client_name ?? null)
+      }
     }
-    void fetchInvite()
+    void fetchBoard()
   }, [boardId])
+
+  // --- Fetch sessions for journey boards ---
+  useEffect(() => {
+    if (!isJourney) return
+    const fetchSessions = async () => {
+      const { data } = await supabase
+        .from('board_sessions')
+        .select('*')
+        .eq('board_id', boardId)
+        .order('session_number', { ascending: true })
+      if (data) {
+        const typed = data as BoardSession[]
+        setSessions(typed)
+        // Auto-select active session if exists
+        const active = typed.find(s => s.status === 'active')
+        if (active) setActiveSessionId(active.id)
+        else if (typed.length > 0) setActiveSessionId(typed[typed.length - 1]!.id)
+      }
+    }
+    void fetchSessions()
+  }, [boardId, isJourney])
+
+  // --- Real-time session sync (broadcast session start/end to all clients) ---
+  const sessionChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+
+  useEffect(() => {
+    if (!isJourney) return
+
+    const channel = supabase.channel(`board:${boardId}:sessions`, {
+      config: { broadcast: { self: false } },
+    })
+
+    channel.on('broadcast', { event: 'session_started' }, ({ payload }) => {
+      const newSession = payload as BoardSession
+      setSessions(prev => {
+        if (prev.some(s => s.id === newSession.id)) return prev
+        return [...prev, newSession]
+      })
+      setActiveSessionId(newSession.id)
+    })
+
+    channel.on('broadcast', { event: 'session_ended' }, ({ payload }) => {
+      const { id, ended_at, summary } = payload as { id: string; ended_at: string; summary: string }
+      setSessions(prev => prev.map(s =>
+        s.id === id ? { ...s, status: 'completed' as const, ended_at, summary } : s
+      ))
+    })
+
+    channel.subscribe()
+    sessionChannelRef.current = channel
+
+    return () => {
+      channel.unsubscribe()
+      sessionChannelRef.current = null
+    }
+  }, [boardId, isJourney])
+
+  // NOTE: Session handlers defined below after hooks
 
   // --- Real-time sync hooks ---
   const { onlineUsers } = usePresence({
@@ -145,6 +227,202 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
 
   const { isSelected, selectObject, clearSelection, selectedIds, selectMultiple } = useSelection()
 
+  // --- Session handlers (need createObject/updateObject from hooks above) ---
+  const handleStartSession = useCallback(async () => {
+    const nextNumber = sessions.length > 0
+      ? Math.max(...sessions.map(s => s.session_number)) + 1
+      : 1
+    const { data, error: sessError } = await supabase
+      .from('board_sessions')
+      .insert({ board_id: boardId, session_number: nextNumber })
+      .select()
+      .single()
+    if (sessError || !data) return
+
+    const newSession = data as BoardSession
+    setSessions(prev => [...prev, newSession])
+    setActiveSessionId(newSession.id)
+
+    // Broadcast to other clients
+    sessionChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'session_started',
+      payload: newSession,
+    })
+
+    // Create a session zone frame and pan canvas to it
+    const sessionX = (nextNumber - 1) * 2000
+    setStageTransform({ x: -sessionX + 100, y: 50, scale: 1 })
+    await createObject({
+      board_id: boardId,
+      type: 'frame',
+      x: sessionX,
+      y: 0,
+      width: 1800,
+      height: 1200,
+      rotation: 0,
+      z_index: -(sessions.length + 1),
+      session_id: newSession.id,
+      data: {
+        title: `Session #${nextNumber} — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+        backgroundColor: 'rgba(254, 243, 199, 0.15)',
+      },
+    } as any)
+
+    // Generate session briefing from past sessions
+    if (nextNumber > 1) {
+      const completedSessions = sessions.filter(s => s.status === 'completed' && s.summary)
+      const lastSummaries = completedSessions.slice(-3)
+      const goalObjects = objects.filter(o => o.type === 'goal')
+      const activeGoals = goalObjects.filter(o => (o.data as GoalData).status === 'active')
+
+      let briefingText = `📋 Session #${nextNumber} Briefing\n\n`
+      if (lastSummaries.length > 0) {
+        briefingText += `Previous sessions:\n${lastSummaries.map(s => `• Session #${s.session_number}: ${s.summary}`).join('\n')}\n\n`
+      }
+      if (activeGoals.length > 0) {
+        briefingText += `Active goals:\n${activeGoals.map(o => `• ${(o.data as GoalData).title}`).join('\n')}`
+      }
+      if (lastSummaries.length === 0 && activeGoals.length === 0) {
+        briefingText += 'Welcome to your first session with history! Previous sessions had no summaries yet.'
+      }
+
+      await createObject({
+        board_id: boardId,
+        type: 'sticky_note',
+        x: sessionX + 20,
+        y: 60,
+        width: 300,
+        height: 250,
+        rotation: 0,
+        z_index: objects.length + 1,
+        session_id: newSession.id,
+        data: {
+          text: briefingText,
+          color: '#E3F2FD',
+        },
+      } as any)
+    }
+  }, [boardId, sessions, objects, createObject])
+
+  const handleEndSession = useCallback(async () => {
+    const active = sessions.find(s => s.status === 'active')
+    if (!active) return
+
+    // Capture AI summary generator BEFORE marking session completed,
+    // since journeyContext.currentSessionNumber becomes undefined after state update
+    const summaryGenerator = generateSummaryRef.current
+
+    // 1. Immediately mark session as completed (optimistic UI update)
+    const endedAt = new Date().toISOString()
+    const placeholderSummary = 'Generating summary...'
+    setSessions(prev => prev.map(s =>
+      s.id === active.id ? { ...s, status: 'completed' as const, ended_at: endedAt, summary: placeholderSummary } : s
+    ))
+
+    // 2. Broadcast to other clients immediately
+    sessionChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'session_ended',
+      payload: { id: active.id, ended_at: endedAt, summary: placeholderSummary },
+    })
+
+    // 3. Persist the completed status to DB right away
+    await supabase
+      .from('board_sessions')
+      .update({ status: 'completed', ended_at: endedAt, summary: placeholderSummary })
+      .eq('id', active.id)
+
+    // 4. Generate AI summary + create sticky note + upsert context in background
+    const capturedObjects = [...objects]
+    const sessionNumber = active.session_number
+    const sessionId = active.id
+
+    void (async () => {
+      let summary = 'Session completed.'
+      let keyThemes: string[] = []
+      const aiResult = await summaryGenerator?.()
+      if (aiResult) {
+        summary = aiResult.summary
+        keyThemes = aiResult.keyThemes
+      } else {
+        const goalObjects = capturedObjects.filter(o => o.type === 'goal')
+        keyThemes = [...new Set(goalObjects.map(o => (o.data as GoalData).title))]
+        if (keyThemes.length > 0) {
+          summary = `Goals discussed: ${keyThemes.join(', ')}`
+        }
+      }
+
+      // Update DB with real summary
+      await supabase
+        .from('board_sessions')
+        .update({ summary })
+        .eq('id', sessionId)
+
+      // Update local state with real summary
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId ? { ...s, summary } : s
+      ))
+
+      // Broadcast updated summary to other clients
+      sessionChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'session_ended',
+        payload: { id: sessionId, ended_at: endedAt, summary },
+      })
+
+      // Create summary sticky note
+      const sessionX = (sessionNumber - 1) * 2000
+      await createObject({
+        board_id: boardId,
+        type: 'sticky_note',
+        x: sessionX + 1480,
+        y: 60,
+        width: 300,
+        height: 300,
+        rotation: 0,
+        z_index: capturedObjects.length + 1,
+        session_id: sessionId,
+        data: {
+          text: `📋 Session Summary\n\n${summary}${keyThemes.length > 0 ? `\n\n🏷️ Themes: ${keyThemes.join(', ')}` : ''}`,
+          color: '#E8F5E9',
+        },
+      } as any)
+
+      // Upsert AI context
+      const allGoals = capturedObjects.filter(o => o.type === 'goal')
+      const allThemes = [...new Set([...keyThemes, ...allGoals.map(o => (o.data as GoalData).title)])]
+      await supabase
+        .from('session_ai_context')
+        .upsert({
+          board_id: boardId,
+          key_themes: allThemes,
+          goal_history: allGoals.map(o => ({
+            title: (o.data as GoalData).title,
+            status: (o.data as GoalData).status,
+            commitments: (o.data as GoalData).commitments,
+          })),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'board_id' })
+    })()
+  }, [boardId, sessions, objects, createObject])
+
+  const panVersionRef = useRef(0)
+  const handleSessionClick = useCallback((session: BoardSession) => {
+    setActiveSessionId(session.id)
+    // Pan canvas to session zone
+    const sessionX = (session.session_number - 1) * 2000
+    panVersionRef.current += 1
+    setPanTo({ x: -sessionX + 100, y: 50, scale: 1, version: panVersionRef.current })
+  }, [])
+
+  // --- Helper: get active session_id for tagging new objects ---
+  const activeSessionRef = useRef<string | null>(null)
+  activeSessionRef.current = isJourney ? (sessions.find(s => s.status === 'active')?.id ?? null) : null
+
+  // Ref for AI summary generator (populated after useAIAgent hook, used by handleEndSession)
+  const generateSummaryRef = useRef<(() => Promise<{ summary: string; keyThemes: string[] } | null>) | null>(null)
+
   // --- Refs (for transformer and create handlers) ---
   const objectsRef = useRef(objects)
   objectsRef.current = objects
@@ -155,6 +433,20 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     for (const obj of objects) map.set(obj.id, obj)
     return map
   }, [objects])
+
+  // --- Goal handlers (need objectMap + updateObject) ---
+  const handleGoalStatusChange = useCallback((goalId: string, newStatus: GoalStatus) => {
+    const obj = objectMap.get(goalId)
+    if (!obj || obj.type !== 'goal') return
+    void updateObject(goalId, {
+      data: { ...(obj.data as GoalData), status: newStatus },
+    })
+  }, [objectMap, updateObject])
+
+  const handleGoalClick = useCallback((goal: BoardObject & { type: 'goal'; data: GoalData }) => {
+    setStageTransform({ x: -goal.x + 200, y: -goal.y + 200, scale: 1 })
+    selectObject(goal.id)
+  }, [selectObject])
 
   // Single-pass object counts (replaces typed filter arrays)
   const objectCounts = useMemo(() => {
@@ -399,6 +691,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   const handleCreateStickyNote = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'sticky_note',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -411,11 +704,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         color: activeColor,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
 
   const handleCreateRectangle = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'rectangle',
       x: cursorPos.x || 150,
       y: cursorPos.y || 150,
@@ -429,11 +723,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
 
   const handleCreateCircle = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'circle',
       x: cursorPos.x || 200,
       y: cursorPos.y || 200,
@@ -448,11 +743,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 2,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
 
   const handleCreateLine = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'line',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -466,11 +762,12 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         strokeWidth: 4,
       },
     })
-  }, [boardId, createObject, cursorPos, objects.length, activeColor])
+  }, [boardId, createObject, cursorPos, objects.length, activeColor, activeSessionRef])
 
   const handleCreateText = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'text',
       x: cursorPos.x || 300,
       y: cursorPos.y || 300,
@@ -480,12 +777,13 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       z_index: objectsRef.current.length,
       data: { text: 'New text', fontSize: 18, color: activeColor } satisfies TextData,
     })
-  }, [boardId, createObject, cursorPos, activeColor])
+  }, [boardId, createObject, cursorPos, activeColor, activeSessionRef])
 
 
   const handleCreateFrame = useCallback(async () => {
     await createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'frame',
       x: cursorPos.x || 100,
       y: cursorPos.y || 100,
@@ -495,12 +793,13 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       z_index: -(objectCounts.frames + 1),  // negative so frames stay behind all regular objects
       data: { title: 'New Frame', backgroundColor: activeColor } satisfies FrameData,
     })
-  }, [boardId, createObject, cursorPos, objectCounts.frames, activeColor])
+  }, [boardId, createObject, cursorPos, objectCounts.frames, activeColor, activeSessionRef])
 
   const handleCreateConnector = useCallback((toId: string) => {
     if (!connectorMode) return
     createObject({
       board_id: boardId,
+      session_id: activeSessionRef.current,
       type: 'connector',
       x: 0,
       y: 0,
@@ -511,7 +810,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
       data: { fromId: connectorMode.fromId, toId, style: 'arrow' } as ConnectorData,
     })
     setConnectorMode(null)
-  }, [connectorMode, createObject])
+  }, [connectorMode, createObject, activeSessionRef])
 
   const handleStartConnect = useCallback((objectId: string, point: { x: number; y: number }) => {
     setConnectorMode({ fromId: objectId, fromPoint: point })
@@ -546,12 +845,37 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
 
   // --- AI agent ---
   const [aiPanelOpen, setAIPanelOpen] = useState(false)
-  const { messages: aiMessages, suggestions: aiSuggestions, isProcessing: aiIsProcessing, sendMessage: aiSendMessage, clearChat: aiClearChat } = useAIAgent({
+
+  // Build journey context for AI when in a coaching journey
+  const journeyContext = useMemo(() => {
+    if (!isJourney) return null
+    const activeGoals = objects
+      .filter(o => o.type === 'goal')
+      .map(o => {
+        const d = o.data as GoalData
+        return { title: d.title, status: d.status, commitments: d.commitments }
+      })
+    const activeSession = sessions.find(s => s.status === 'active')
+    const recentSummaries = sessions
+      .filter(s => s.status === 'completed' && s.summary)
+      .slice(-3)
+      .map(s => ({ session_number: s.session_number, summary: s.summary! }))
+    return {
+      clientName: clientName ?? undefined,
+      currentSessionNumber: activeSession?.session_number,
+      activeGoals,
+      recentSummaries,
+    }
+  }, [isJourney, objects, sessions, clientName])
+
+  const { messages: aiMessages, suggestions: aiSuggestions, isProcessing: aiIsProcessing, sendMessage: aiSendMessage, clearChat: aiClearChat, generateSessionSummary } = useAIAgent({
     boardId,
     objects,
     createObject,
     updateObject,
+    journeyContext,
   })
+  generateSummaryRef.current = generateSessionSummary
 
   // --- Toolbar tool selection ---
   const handleToolSelect = useCallback((tool: typeof activeTool) => {
@@ -614,7 +938,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   return (
     <div
       className="relative w-screen h-screen overflow-hidden bg-gray-100"
-      style={{ cursor: connectorMode ? 'crosshair' : 'default', paddingRight: aiPanelOpen ? 350 : 0 }}
+      style={{ cursor: connectorMode ? 'crosshair' : 'default', paddingRight: aiPanelOpen ? 350 : 0, paddingLeft: goalsSidebarOpen ? 300 : 0 }}
     >
       {/* Top Bar */}
       <BoardTopBar
@@ -638,7 +962,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           }
         }}
       >
-        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { setContextMenu(null); if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef}>
+        <BoardStage onCursorMove={handleCursorMove} onStageClick={() => { setContextMenu(null); if (connectorMode) { setConnectorMode(null) } else { clearSelection() } }} onStageTransformChange={setStageTransform} onMarqueeSelect={handleMarqueeSelect} onResetZoomRef={resetZoomRef} panTo={panTo}>
         <ObjectRenderer
           sortedObjects={sortedObjects}
           objectMap={objectMap}
@@ -725,6 +1049,41 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
           onDelete={handleDelete}
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {/* Journey: Timeline Strip */}
+      {isJourney && (
+        <TimelineStrip
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSessionClick={handleSessionClick}
+          onStartSession={handleStartSession}
+          onEndSession={handleEndSession}
+          hasActiveSession={hasActiveSession}
+          isCoach={isCoach}
+        />
+      )}
+
+      {/* Journey: Goals Sidebar */}
+      {isJourney && (
+        <GoalsSidebar
+          isOpen={goalsSidebarOpen}
+          onClose={() => setGoalsSidebarOpen(false)}
+          objects={objects}
+          onGoalClick={handleGoalClick}
+          onStatusChange={handleGoalStatusChange}
+        />
+      )}
+
+      {/* Journey: Goals toggle button */}
+      {isJourney && !goalsSidebarOpen && (
+        <button
+          onClick={() => setGoalsSidebarOpen(true)}
+          className="fixed bottom-20 left-4 z-20 w-10 h-10 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-lg flex items-center justify-center transition"
+          title="Open Goals"
+        >
+          🎯
+        </button>
       )}
 
       {/* Bottom Toolbar */}

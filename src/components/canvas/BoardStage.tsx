@@ -22,6 +22,7 @@ interface BoardStageProps {
   onStageTransformChange?: (pos: { x: number; y: number; scale: number }) => void
   onMarqueeSelect?: (rect: { x: number; y: number; width: number; height: number }) => void
   onResetZoomRef?: React.MutableRefObject<(() => void) | null>
+  panTo?: { x: number; y: number; scale: number; version: number }
   width?: number
   height?: number
 }
@@ -38,6 +39,7 @@ export function BoardStage({
   onStageTransformChange,
   onMarqueeSelect,
   onResetZoomRef,
+  panTo,
   width = window.innerWidth,
   height = window.innerHeight,
 }: BoardStageProps) {
@@ -66,6 +68,13 @@ export function BoardStage({
       }
     }
   }, [onResetZoomRef])
+
+  // Pan to a specific position when panTo prop changes
+  useEffect(() => {
+    if (!panTo) return
+    setStagePos({ x: panTo.x, y: panTo.y })
+    setStageScale(panTo.scale)
+  }, [panTo?.version]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Stop panning when mouse is released outside the stage
   useEffect(() => {

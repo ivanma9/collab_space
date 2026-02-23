@@ -148,6 +148,7 @@ export function useRealtimeSync({
             rotation: objectData.rotation,
             z_index: objectData.z_index,
             data: objectData.data as unknown as Json,
+            session_id: (objectData as any).session_id ?? null,
             created_by: null, // Set to null for testing (will use real userId with auth)
           })
           .select()
