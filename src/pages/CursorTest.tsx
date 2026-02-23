@@ -737,11 +737,6 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
         isLoading={isLoading}
         activeColor={activeColor}
         onColorChange={handleColorChange}
-        hasSelection={selectedIds.size > 0}
-        onBringToFront={handleBringToFront}
-        onBringForward={handleBringForward}
-        onSendBackward={handleSendBackward}
-        onSendToBack={handleSendToBack}
       />
 
       {/* Error display */}

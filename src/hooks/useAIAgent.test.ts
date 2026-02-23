@@ -205,8 +205,13 @@ describe("color maps", () => {
 // useAIAgent hook — sendMessage
 // ═══════════════════════════════════════════════════════════════
 describe("useAIAgent", () => {
+	let uuidCounter: number
 	beforeEach(() => {
 		vi.clearAllMocks()
+		uuidCounter = 0
+		vi.spyOn(crypto, "randomUUID").mockImplementation(
+			() => `mock-uuid-${uuidCounter++}` as `${string}-${string}-${string}-${string}-${string}`,
+		)
 	})
 
 	it("starts with empty state", () => {
@@ -242,7 +247,7 @@ describe("useAIAgent", () => {
 
 		expect(createObject).toHaveBeenCalledWith(
 			expect.objectContaining({
-				id: "uuid-1",
+				id: "mock-uuid-2",
 				type: "sticky_note",
 				x: 100,
 				y: 200,
