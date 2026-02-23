@@ -396,8 +396,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
   }, [objects, selectMultiple])
 
   // --- Object creation handlers ---
-  const handleCreateStickyNote = useCallback(async () => {
+  const handleCreateStickyNote = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'sticky_note',
       x: cursorPos.x || 100,
@@ -413,8 +414,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
-  const handleCreateRectangle = useCallback(async () => {
+  const handleCreateRectangle = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'rectangle',
       x: cursorPos.x || 150,
@@ -431,8 +433,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
-  const handleCreateCircle = useCallback(async () => {
+  const handleCreateCircle = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'circle',
       x: cursorPos.x || 200,
@@ -450,8 +453,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
-  const handleCreateLine = useCallback(async () => {
+  const handleCreateLine = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'line',
       x: cursorPos.x || 100,
@@ -468,8 +472,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, objects.length, activeColor])
 
-  const handleCreateText = useCallback(async () => {
+  const handleCreateText = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'text',
       x: cursorPos.x || 300,
@@ -482,9 +487,9 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     })
   }, [boardId, createObject, cursorPos, activeColor])
 
-
-  const handleCreateFrame = useCallback(async () => {
+  const handleCreateFrame = useCallback(async (id?: string) => {
     await createObject({
+      id,
       board_id: boardId,
       type: 'frame',
       x: cursorPos.x || 100,
@@ -559,7 +564,7 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     setActiveTool(tool)
 
     // Immediately create the object for non-select tools
-    const creators: Record<string, (() => void) | undefined> = {
+    const creators: Record<string, ((id?: string) => void) | undefined> = {
       sticky_note: handleCreateStickyNote,
       rectangle: handleCreateRectangle,
       circle: handleCreateCircle,
@@ -569,11 +574,15 @@ function CursorTestInner({ boardId, userId, displayName, avatarUrl, signOut }: C
     }
     const creator = creators[tool]
     if (creator) {
-      creator()
+      // Generate a stable UUID so the object keeps the same ID from optimistic update through DB persist
+      const id = crypto.randomUUID()
+      creator(id)
+      // Auto-select the newly created object
+      selectObject(id)
       // Reset to select after creating
       setActiveTool('select')
     }
-  }, [handleCreateStickyNote, handleCreateRectangle, handleCreateCircle, handleCreateLine, handleCreateText, handleCreateFrame])
+  }, [handleCreateStickyNote, handleCreateRectangle, handleCreateCircle, handleCreateLine, handleCreateText, handleCreateFrame, selectObject])
 
   const handleDelete = useCallback(() => {
     selectedIds.forEach((id) => { deleteObject(id) })

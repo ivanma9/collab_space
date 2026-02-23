@@ -135,10 +135,11 @@ export function useRealtimeSync({
         }
 
         // 3. Persist to database (async)
-        // Always let Postgres generate the UUID — the temp ID flow handles the swap
+        // When a UUID is provided, use it as the DB id to avoid temp→real ID swaps
         const { data, error: insertError } = await supabase
           .from('board_objects')
           .insert({
+            ...(objectData.id ? { id: objectData.id } : {}),
             board_id: objectData.board_id,
             type: objectData.type,
             x: objectData.x,
