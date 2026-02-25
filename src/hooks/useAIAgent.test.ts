@@ -54,7 +54,7 @@ const DEFAULT_META = {
 	outputTokens: 50,
 	latencyMs: 500,
 	model: "claude-haiku-4-5-20251001",
-	braintrustTraceId: null,
+
 }
 
 function executionResponse(toolCalls: { name: string; input: any }[]) {

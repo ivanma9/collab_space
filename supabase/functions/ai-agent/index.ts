@@ -1,16 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk"
-import { initLogger, wrapAnthropic, traced } from "npm:braintrust"
 import { tools } from "./tools.ts"
 
-const logger = initLogger({
-  projectName: "CollabBoard Agent",
-  apiKey: Deno.env.get("BRAINTRUST_API_KEY"),
-  asyncFlush: true,
-})
-
-const anthropic = wrapAnthropic(
-  new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! }),
-)
+const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! })
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,8 +15,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-
-  return await traced(async (span) => {
 
   const { messages: incomingMessages, boardState = [], boardId, openArea, journeyContext } =
     await req.json()
@@ -136,7 +125,6 @@ RULES:
     outputTokens: response.usage.output_tokens,
     latencyMs,
     model: response.model,
-    braintrustTraceId: null as string | null,
   }
 
   const allToolCalls = response.content
@@ -174,10 +162,6 @@ RULES:
     }
   }
 
-  meta.braintrustTraceId = span.id
-
-  await logger.flush()
-
   const result =
     clarificationCall || toolCalls.length === 0
       ? { type: "clarification" as const, message: cleanMessage, suggestions, meta }
@@ -190,15 +174,13 @@ RULES:
     },
   })
 
-  }, { name: "ai-agent-request" })
-
   } catch (err) {
     console.error("AI agent error:", err)
     const errorResponse = {
       type: "clarification" as const,
       message: "Something went wrong. Please try again.",
       suggestions: [],
-      meta: { inputTokens: 0, outputTokens: 0, latencyMs: 0, model: "", braintrustTraceId: null },
+      meta: { inputTokens: 0, outputTokens: 0, latencyMs: 0, model: "" },
     }
     return new Response(JSON.stringify(errorResponse), {
       headers: {

@@ -3,7 +3,7 @@ export interface AIMessageMeta {
 	outputTokens: number
 	latencyMs: number
 	model: string
-	braintrustTraceId: string | null
+
 }
 
 export interface AIToolCallResult {
